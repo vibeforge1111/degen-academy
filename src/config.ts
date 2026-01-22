@@ -7,25 +7,24 @@ import { GameScene } from './scenes/GameScene.ts';
 import { DeathScene } from './scenes/DeathScene.ts';
 import { WinScene } from './scenes/WinScene.ts';
 
+// Fixed game resolution - designed for this specific size
+// The game will scale to fit the viewport while maintaining aspect ratio
+export const GAME_WIDTH = 1280;
+export const GAME_HEIGHT = 720;
+
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
-  // Base resolution - will be overridden by RESIZE mode
-  width: window.innerWidth,
-  height: window.innerHeight,
+  width: GAME_WIDTH,
+  height: GAME_HEIGHT,
   parent: 'game-container',
   backgroundColor: '#0F0F1A',
   scene: [BootScene, MenuScene, GameScene, DeathScene, WinScene],
   scale: {
-    // RESIZE mode: Canvas fills parent container, no letterboxing
-    // The game resolution dynamically matches the viewport
-    mode: Phaser.Scale.RESIZE,
-    // No autoCenter needed with RESIZE - canvas fills parent
-    autoCenter: Phaser.Scale.NO_CENTER,
-    // Parent container
+    // FIT mode: Scales canvas to fit while maintaining 16:9 aspect ratio
+    // This gives a stable, predictable layout
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
     parent: 'game-container',
-    // Ensure canvas stretches to fill
-    width: '100%',
-    height: '100%',
   },
   render: {
     pixelArt: false,
