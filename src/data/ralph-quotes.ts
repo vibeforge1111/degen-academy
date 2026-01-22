@@ -70,6 +70,26 @@ export const RALPH_QUOTES = {
     "Supply shock incoming!",
   ],
 
+  buyAudit: [
+    "Smart! Security is the best investment.",
+    "Audit acquired. Sleep better at night.",
+    "Hackers on notice. You're protected.",
+    "DYOR includes audits. Good choice.",
+  ],
+
+  buyInsurance: [
+    "Insurance? Look at you being responsible!",
+    "Whale protection activated. Nice.",
+    "Hedge against chaos. I approve.",
+    "Playing defense. Smart degen.",
+  ],
+
+  cantAfford: [
+    "Broke. Need more funds, fren.",
+    "Portfolio says no.",
+    "Math isn't mathing right now.",
+  ],
+
   lowBalance: [
     "Getting spicy. Portfolio looking thin.",
     "Maybe time for a comeback?",

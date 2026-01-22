@@ -4,6 +4,7 @@ import Phaser from 'phaser';
 import { GAME_CONSTANTS } from '../data/constants.ts';
 import { createInitialPools, getRiskEmoji, getRiskLabel } from '../data/pools.ts';
 import { getRandomQuote } from '../data/ralph-quotes.ts';
+import { saveManager } from '../systems/SaveManager.ts';
 import type { Pool, GameState, GameEvent, EventType } from '../types/game.ts';
 
 export class GameScene extends Phaser.Scene {
@@ -34,6 +35,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private initializeGameState(): void {
+    // Load saved stats for lifetime tracking
+    const savedStats = saveManager.getStats();
+
     this.gameState = {
       portfolio: GAME_CONSTANTS.STARTING_PORTFOLIO,
       pools: createInitialPools(),
@@ -50,13 +54,15 @@ export class GameScene extends Phaser.Scene {
         halvingCount: 0,
       },
       stats: {
-        rugsEaten: 0,
+        rugsEaten: 0, // Reset for this run
         highestPortfolio: GAME_CONSTANTS.STARTING_PORTFOLIO,
-        gamesPlayed: 0,
-        totalTimePlayed: 0,
-        fastestWin: null,
+        gamesPlayed: savedStats.gamesPlayed,
+        totalTimePlayed: savedStats.totalTimePlayed,
+        fastestWin: savedStats.fastestWin,
       },
     };
+
+    console.log('[GameScene] Loaded stats - Games played:', savedStats.gamesPlayed);
   }
 
   private createUI(): void {
@@ -200,13 +206,13 @@ export class GameScene extends Phaser.Scene {
       color: '#A1A1AA',
     }).setOrigin(0.5);
 
-    // Buttons
-    const depositBtn = this.createSmallButton(-45, h / 2 - 30, 'DEP', 0x8B5CF6, () => {
-      this.deposit(pool.id, GAME_CONSTANTS.MIN_DEPOSIT);
+    // Buttons - Deposit $1k and Withdraw All
+    const depositBtn = this.createSmallButton(-45, h / 2 - 30, '+$1K', 0x8B5CF6, () => {
+      this.deposit(pool.id, 1000);
     });
 
-    const withdrawBtn = this.createSmallButton(45, h / 2 - 30, 'WITH', 0x3D3D5C, () => {
-      this.withdraw(pool.id, GAME_CONSTANTS.MIN_DEPOSIT);
+    const withdrawBtn = this.createSmallButton(45, h / 2 - 30, 'OUT', 0x3D3D5C, () => {
+      this.withdrawAll(pool.id);
     });
 
     container.add([bg, nameText, riskText, apyText, depositedText, yieldText, ...depositBtn, ...withdrawBtn]);
@@ -574,6 +580,14 @@ export class GameScene extends Phaser.Scene {
   private checkEndConditions(): void {
     if (this.gameState.portfolio >= GAME_CONSTANTS.WIN_PORTFOLIO) {
       this.gameState.isVictory = true;
+
+      // Save stats to LocalStorage
+      saveManager.recordGameEnd(
+        this.gameState.stats,
+        true,
+        this.gameState.currentRun.elapsed
+      );
+
       this.scene.start('WinScene', {
         portfolio: this.gameState.portfolio,
         stats: this.gameState.stats,
@@ -583,6 +597,14 @@ export class GameScene extends Phaser.Scene {
 
     if (this.gameState.portfolio <= 0) {
       this.gameState.isGameOver = true;
+
+      // Save stats to LocalStorage
+      saveManager.recordGameEnd(
+        this.gameState.stats,
+        false,
+        this.gameState.currentRun.elapsed
+      );
+
       this.scene.start('DeathScene', {
         portfolio: this.gameState.portfolio,
         stats: this.gameState.stats,
@@ -593,10 +615,17 @@ export class GameScene extends Phaser.Scene {
 
   private deposit(poolId: string, amount: number): void {
     const pool = this.gameState.pools.find(p => p.id === poolId);
-    if (!pool || pool.isRugged) return;
+    if (!pool || pool.isRugged) {
+      this.showToast('❌ Pool Rugged', 'This pool has been rugged!', 0xEF4444);
+      return;
+    }
 
     const cost = amount * this.gameState.gasMultiplier;
-    if (this.gameState.portfolio < cost) return;
+    if (this.gameState.portfolio < cost) {
+      this.setRalphQuote('cantAfford');
+      this.showToast('❌ Insufficient Funds', `Need $${cost.toFixed(2)} (${this.gameState.gasMultiplier}x gas)`, 0xEF4444);
+      return;
+    }
 
     this.gameState.portfolio -= cost;
     pool.deposited += amount;
@@ -607,27 +636,51 @@ export class GameScene extends Phaser.Scene {
 
   private withdraw(poolId: string, amount: number): void {
     const pool = this.gameState.pools.find(p => p.id === poolId);
-    if (!pool || pool.isRugged || pool.deposited < amount) return;
+    if (!pool || pool.isRugged) return;
 
-    pool.deposited -= amount;
-    this.gameState.portfolio += amount;
+    // Withdraw all if amount is greater than deposited
+    const actualAmount = Math.min(amount, pool.deposited);
+    if (actualAmount <= 0) {
+      this.showToast('❌ Nothing to Withdraw', 'No funds in this pool', 0xF59E0B);
+      return;
+    }
+
+    pool.deposited -= actualAmount;
+    this.gameState.portfolio += actualAmount;
     this.setRalphQuote('withdraw');
+  }
+
+  private withdrawAll(poolId: string): void {
+    const pool = this.gameState.pools.find(p => p.id === poolId);
+    if (pool && pool.deposited > 0) {
+      this.withdraw(poolId, pool.deposited);
+    }
   }
 
   private buyAudit(): void {
     const cost = GAME_CONSTANTS.AUDIT_COST * this.gameState.gasMultiplier;
-    if (this.gameState.portfolio < cost) return;
+    if (this.gameState.portfolio < cost) {
+      this.setRalphQuote('cantAfford');
+      return;
+    }
 
     this.gameState.portfolio -= cost;
     this.gameState.items.audits++;
+    this.setRalphQuote('buyAudit');
+    this.showToast('🛡️ Audit Purchased!', `Exploit protection +1 (${this.gameState.items.audits} total)`, 0x8B5CF6);
   }
 
   private buyInsurance(): void {
     const cost = GAME_CONSTANTS.INSURANCE_COST * this.gameState.gasMultiplier;
-    if (this.gameState.portfolio < cost) return;
+    if (this.gameState.portfolio < cost) {
+      this.setRalphQuote('cantAfford');
+      return;
+    }
 
     this.gameState.portfolio -= cost;
     this.gameState.items.insurance++;
+    this.setRalphQuote('buyInsurance');
+    this.showToast('🏥 Insurance Purchased!', `Whale dump protection +1 (${this.gameState.items.insurance} total)`, 0x8B5CF6);
   }
 
   private updateUI(): void {
