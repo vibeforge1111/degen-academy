@@ -51,6 +51,9 @@ const initialStats: MemeGameStats = {
 
 function createInitialToken(): MemeToken {
   const { name, ticker, emoji } = generateTokenName();
+  // Random supply between 100M and 10B
+  const supplyOptions = [100_000_000, 420_690_000, 1_000_000_000, 6_900_000_000, 10_000_000_000];
+  const totalSupply = supplyOptions[Math.floor(Math.random() * supplyOptions.length)];
   return {
     name,
     ticker,
@@ -59,6 +62,7 @@ function createInitialToken(): MemeToken {
     currentPrice: MEME_CONSTANTS.STARTING_PRICE,
     priceHistory: [MEME_CONSTANTS.STARTING_PRICE],
     launchTime: Date.now(),
+    totalSupply,
   };
 }
 

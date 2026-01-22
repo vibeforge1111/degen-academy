@@ -102,11 +102,19 @@
         <!-- Mode Switcher -->
         <div class="mode-switcher">
           <button class="mode-tab active">
-            <span>📊</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1"/>
+              <rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/>
+              <rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
             <span>Yield Farms</span>
           </button>
           <button class="mode-tab" onclick={() => setScreen('meme')}>
-            <span>📈</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
+              <polyline points="16 7 22 7 22 13"/>
+            </svg>
             <span>Meme Coins</span>
           </button>
         </div>
@@ -336,36 +344,47 @@
   /* Mode Switcher */
   .mode-switcher {
     display: flex;
-    gap: 4px;
-    padding: 4px;
-    background: #1e1e2e;
-    border-radius: 10px;
+    gap: 2px;
   }
 
   .mode-tab {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
+    gap: 8px;
+    padding: 10px 18px;
     font-size: 13px;
     font-weight: 500;
     color: rgba(255,255,255,0.5);
     background: transparent;
-    border: none;
+    border: 1px solid transparent;
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s ease;
   }
 
+  .mode-tab svg {
+    opacity: 0.6;
+  }
+
   .mode-tab:hover:not(.active) {
     color: rgba(255,255,255,0.8);
     background: rgba(255,255,255,0.05);
+    border-color: rgba(255,255,255,0.1);
+  }
+
+  .mode-tab:hover:not(.active) svg {
+    opacity: 0.8;
   }
 
   .mode-tab.active {
     color: white;
-    background: #8b5cf6;
-    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+    background: rgba(139, 92, 246, 0.15);
+    border-color: rgba(139, 92, 246, 0.4);
+  }
+
+  .mode-tab.active svg {
+    opacity: 1;
+    color: #a78bfa;
   }
 
   /* Ralph panel */

@@ -8,6 +8,7 @@ export interface MemeToken {
   currentPrice: number;
   priceHistory: number[];
   launchTime: number;
+  totalSupply: number;      // Total token supply (e.g., 1 billion)
 }
 
 export interface SocialPost {
