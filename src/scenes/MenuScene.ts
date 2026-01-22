@@ -77,11 +77,11 @@ export class MenuScene extends Phaser.Scene {
 
     currentY += 100;
 
-    // Info cards - positioned lower, swapped left and middle icons
+    // Info cards - icons stay, text swapped (Goal in middle)
     const cardY = currentY + 140;
     const cardSpacing = 240;
-    this.createInfoCard(width / 2 - cardSpacing, cardY, 'icon-goal', 'Goal: $1,000,000', 'Reach to graduate');
-    this.createInfoCard(width / 2, cardY, 'icon-start', 'Start: $10,000', 'Your initial funding');
+    this.createInfoCard(width / 2 - cardSpacing, cardY, 'icon-goal', 'Start: $10,000', 'Your initial funding');
+    this.createInfoCard(width / 2, cardY, 'icon-start', 'Goal: $1,000,000', 'Reach to graduate');
     this.createInfoCard(width / 2 + cardSpacing, cardY, 'icon-halving', 'Halving: 5 min', 'Yields cut 50%');
 
     // === BOTTOM SECTION ===
