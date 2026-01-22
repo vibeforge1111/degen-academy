@@ -18,6 +18,7 @@
     formatPrice,
     getChangeColor,
     formatMarketCap,
+    getTierConfig,
   } from '../../stores/memeStore.svelte';
   import { portfolio, setScreen, getTotalDeposited } from '../../stores/gameStore.svelte';
   import { onMount } from 'svelte';
@@ -165,12 +166,14 @@
         {#each tokens as t, i}
           {@const tokenChange = getTokenChange(t)}
           {@const tokenColor = getChangeColor(tokenChange)}
+          {@const tierConfig = getTierConfig(t.tier)}
           <button
             class="token-tab"
             class:active={selectedIdx === i}
             class:holding={tradingIdx === i}
             onclick={() => selectToken(i)}
           >
+            <span class="tier-badge" style="background: {tierConfig.color}">{tierConfig.label}</span>
             <span class="token-emoji">{t.emoji}</span>
             <div class="token-info">
               <span class="token-ticker">{t.ticker}</span>
@@ -199,7 +202,13 @@
             <div class="token-identity">
               <span class="big-emoji">{token?.emoji}</span>
               <div>
-                <h2 class="token-name">{token?.name}</h2>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <h2 class="token-name">{token?.name}</h2>
+                  {#if token}
+                    {@const tc = getTierConfig(token.tier)}
+                    <span class="header-tier-badge" style="background: {tc.color}">{tc.label} CAP</span>
+                  {/if}
+                </div>
                 <span class="token-ticker-sub">{token?.ticker}</span>
               </div>
             </div>
@@ -217,6 +226,12 @@
               <div class="stat">
                 <span class="stat-label">Supply</span>
                 <span class="stat-value">{token?.totalSupply ? (token.totalSupply / 1_000_000_000).toFixed(1) + 'B' : '-'}</span>
+              </div>
+              <div class="stat">
+                <span class="stat-label">Risk</span>
+                <span class="stat-value" style="color: {token ? getTierConfig(token.tier).color : '#fff'}">
+                  {token?.tier === 'micro' ? '🔥 EXTREME' : token?.tier === 'small' ? '⚠️ HIGH' : token?.tier === 'mid' ? '📊 MED' : '🛡️ LOW'}
+                </span>
               </div>
             </div>
           </div>
@@ -411,6 +426,24 @@
     border-radius: 3px;
   }
 
+  .tier-badge {
+    font-size: 7px;
+    font-weight: 700;
+    padding: 2px 4px;
+    color: white;
+    border-radius: 3px;
+    text-shadow: 0 1px 1px rgba(0,0,0,0.3);
+  }
+
+  .header-tier-badge {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 3px 6px;
+    color: white;
+    border-radius: 4px;
+    text-shadow: 0 1px 1px rgba(0,0,0,0.3);
+  }
+
   /* Trading Layout */
   .trading-layout {
     display: grid;
@@ -515,12 +548,14 @@
     min-height: 250px;
   }
 
-  /* Trading Area */
+  /* Trading Area - fills grid cell height */
   .trading-area {
     display: flex;
     flex-direction: column;
     gap: 12px;
     min-height: 0;
+    height: 100%;
+    overflow: hidden;
   }
 
   .position-card {
@@ -609,11 +644,11 @@
     transform: scale(0.98);
   }
 
-  /* Buy Section */
+  /* Buy Section - matches token tabs bar styling */
   .buy-section {
-    padding: 12px;
-    background: rgba(19, 23, 34, 0.8);
-    border-radius: 8px;
+    padding: 10px 14px;
+    background: #2d2d3a;
+    border-radius: 10px;
     border: 1px solid rgba(255,255,255,0.08);
   }
 
@@ -653,9 +688,12 @@
     cursor: not-allowed;
   }
 
-  /* Feed Area */
+  /* Feed Area - extends to fill remaining space and align with chart bottom */
   .feed-area {
     flex: 1;
-    min-height: 150px;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 </style>

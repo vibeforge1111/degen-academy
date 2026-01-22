@@ -1,5 +1,5 @@
 // Meme Coin Simulator Store - "Pump or Dump"
-import type { MemeToken, MemeGameState, MemeGameStats, SocialPost, MemeEventType } from '../../types/meme';
+import type { MemeToken, MemeGameState, MemeGameStats, SocialPost, MemeEventType, MarketCapTier } from '../../types/meme';
 import {
   generateTokenName,
   getRandomAuthor,
@@ -17,16 +17,96 @@ import { portfolio, addToPortfolio, deductFromPortfolio } from './gameStore.svel
 const MEME_CONSTANTS = {
   TICK_INTERVAL_MS: 500,           // Price updates every 500ms
   EVENT_CHECK_INTERVAL_MS: 2500,   // Check for events every 2.5s
-  MAX_POSTS_DISPLAYED: 5,          // Max posts in feed (compact)
-  STARTING_PRICE: 0.000001,        // Starting price for new tokens
-  BASE_VOLATILITY: 0.025,          // Base price volatility per tick
-  RUG_BASE_PROBABILITY: 0.015,     // Base rug chance per check
-  RUG_PROBABILITY_INCREASE: 0.003, // Rug chance increases over time
+  MAX_POSTS_DISPLAYED: 15,         // Max posts in feed (more for scrolling)
   MOON_THRESHOLD: 10,              // 10x = moon
   MIN_BUY_AMOUNT: 100,             // Minimum buy in $
   SLIPPAGE: 0.02,                  // 2% slippage on buys
-  NUM_TOKENS: 5,                   // Number of tokens to generate
+  NUM_TOKENS: 7,                   // Number of tokens to generate
 };
+
+// ============================================
+// MARKET CAP TIER SYSTEM
+// ============================================
+// Micro caps: Ultra volatile, high rug risk, can 10x or -99% fast
+// Small caps: Very volatile, moderate rug risk, good pump potential
+// Mid caps: Moderate volatility, lower rug risk, steadier growth
+// Large caps: Low volatility, rare rugs, slower but safer
+
+interface TierConfig {
+  // Market cap range
+  minMarketCap: number;
+  maxMarketCap: number;
+  // Supply range
+  supplyOptions: number[];
+  // Volatility (multiplier on base)
+  volatility: number;
+  // Bias - positive = more likely to pump, negative = more likely to dump
+  bias: number;
+  // Rug probability multiplier
+  rugMultiplier: number;
+  // Min price gain before rug is possible (%)
+  rugThreshold: number;
+  // Event impact multiplier (how much events affect price)
+  eventImpact: number;
+  // Color for UI
+  color: string;
+  label: string;
+}
+
+const TIER_CONFIGS: Record<MarketCapTier, TierConfig> = {
+  micro: {
+    minMarketCap: 1_000,           // $1K
+    maxMarketCap: 50_000,          // $50K
+    supplyOptions: [100_000_000, 420_690_000, 1_000_000_000],
+    volatility: 0.06,              // 6% swings per tick - WILD
+    bias: 0.48,                    // Slightly more dumps than pumps
+    rugMultiplier: 3.0,            // 3x more likely to rug
+    rugThreshold: 50,              // Can rug after 50% gain
+    eventImpact: 2.5,              // Events hit HARD
+    color: '#ef4444',              // Red - danger
+    label: 'MICRO',
+  },
+  small: {
+    minMarketCap: 50_000,          // $50K
+    maxMarketCap: 500_000,         // $500K
+    supplyOptions: [420_690_000, 1_000_000_000, 6_900_000_000],
+    volatility: 0.04,              // 4% swings - still spicy
+    bias: 0.50,                    // Neutral
+    rugMultiplier: 1.5,            // 1.5x rug chance
+    rugThreshold: 100,             // Need 2x before rug possible
+    eventImpact: 1.5,              // Events have good impact
+    color: '#f59e0b',              // Orange - caution
+    label: 'SMALL',
+  },
+  mid: {
+    minMarketCap: 500_000,         // $500K
+    maxMarketCap: 5_000_000,       // $5M
+    supplyOptions: [1_000_000_000, 6_900_000_000, 10_000_000_000],
+    volatility: 0.025,             // 2.5% - moderate
+    bias: 0.52,                    // Slight upward trend
+    rugMultiplier: 0.5,            // Half rug chance
+    rugThreshold: 200,             // Need 3x before rug possible
+    eventImpact: 1.0,              // Normal event impact
+    color: '#3b82f6',              // Blue - moderate risk
+    label: 'MID',
+  },
+  large: {
+    minMarketCap: 5_000_000,       // $5M
+    maxMarketCap: 100_000_000,     // $100M
+    supplyOptions: [6_900_000_000, 10_000_000_000, 69_000_000_000],
+    volatility: 0.012,             // 1.2% - more stable
+    bias: 0.54,                    // More reliable upward
+    rugMultiplier: 0.15,           // Very rare rugs
+    rugThreshold: 300,             // Need 4x before rug
+    eventImpact: 0.6,              // Events have muted impact
+    color: '#22c55e',              // Green - "safer"
+    label: 'LARGE',
+  },
+};
+
+// Distribution of tiers for the 7 tokens
+// 2 micro, 2 small, 2 mid, 1 large (always have one "safer" option)
+const TIER_DISTRIBUTION: MarketCapTier[] = ['micro', 'micro', 'small', 'small', 'mid', 'mid', 'large'];
 
 // ============================================
 // STATE
@@ -56,13 +136,18 @@ const initialStats: MemeGameStats = {
   moonshots: 0,
 };
 
-function createToken(): MemeToken {
+function createToken(tier: MarketCapTier): MemeToken {
   const { name, ticker, emoji } = generateTokenName();
-  const supplyOptions = [100_000_000, 420_690_000, 1_000_000_000, 6_900_000_000, 10_000_000_000];
-  const totalSupply = supplyOptions[Math.floor(Math.random() * supplyOptions.length)];
-  // Randomize starting price a bit
-  const priceMultiplier = 0.5 + Math.random() * 2;
-  const startPrice = MEME_CONSTANTS.STARTING_PRICE * priceMultiplier;
+  const config = TIER_CONFIGS[tier];
+
+  // Get supply from tier-appropriate options
+  const totalSupply = config.supplyOptions[Math.floor(Math.random() * config.supplyOptions.length)];
+
+  // Calculate starting price based on market cap target
+  // Market cap = price * supply, so price = market cap / supply
+  const targetMarketCap = config.minMarketCap + Math.random() * (config.maxMarketCap - config.minMarketCap);
+  const startPrice = targetMarketCap / totalSupply;
+
   return {
     name,
     ticker,
@@ -72,11 +157,19 @@ function createToken(): MemeToken {
     priceHistory: [startPrice],
     launchTime: Date.now() - Math.floor(Math.random() * 60000), // Random launch time in past minute
     totalSupply,
+    tier,
   };
 }
 
 function createInitialTokens(): MemeToken[] {
-  return Array.from({ length: MEME_CONSTANTS.NUM_TOKENS }, () => createToken());
+  // Shuffle the tier distribution for variety
+  const shuffledTiers = [...TIER_DISTRIBUTION].sort(() => Math.random() - 0.5);
+  return shuffledTiers.map(tier => createToken(tier));
+}
+
+// Export tier config for UI use
+export function getTierConfig(tier: MarketCapTier): TierConfig {
+  return TIER_CONFIGS[tier];
 }
 
 let store = $state<MemeStore>({
@@ -225,24 +318,38 @@ function stopIntervals() {
 }
 
 // ============================================
-// PRICE SIMULATION - ALL TOKENS
+// PRICE SIMULATION - ALL TOKENS (TIER-BASED)
 // ============================================
+
+const BASE_RUG_CHANCE = 0.008; // 0.8% base chance per tick check
 
 function tickAllPrices() {
   if (!store.isPlaying) return;
 
   store.tokens.forEach((token, index) => {
-    // Each token has its own volatility based on age and randomness
+    const config = TIER_CONFIGS[token.tier];
     const age = (Date.now() - token.launchTime) / 1000;
-    const volatility = MEME_CONSTANTS.BASE_VOLATILITY * (1 + Math.random() * 0.5);
 
-    // Random walk with slight bias
-    const bias = Math.random() < 0.52 ? 1 : -1; // Slight upward bias
-    const randomChange = (Math.random() * volatility) * bias;
-    const newPrice = token.currentPrice * (1 + randomChange);
+    // Tier-based volatility with some randomness
+    const volatility = config.volatility * (0.8 + Math.random() * 0.4);
 
-    // Clamp price
-    token.currentPrice = Math.max(newPrice, token.startPrice * 0.01);
+    // Tier-based bias (micro caps dump more, large caps pump more)
+    const direction = Math.random() < config.bias ? 1 : -1;
+
+    // Random walk
+    const randomChange = (Math.random() * volatility) * direction;
+    let newPrice = token.currentPrice * (1 + randomChange);
+
+    // Occasional momentum spikes for micro/small caps
+    if ((token.tier === 'micro' || token.tier === 'small') && Math.random() < 0.03) {
+      const spikeDir = Math.random() < 0.5 ? 1 : -1;
+      const spikeMagnitude = token.tier === 'micro' ? 0.15 : 0.08; // 15% or 8% spike
+      newPrice *= (1 + spikeMagnitude * spikeDir);
+    }
+
+    // Clamp price (micro can go lower before floor)
+    const floorMultiplier = token.tier === 'micro' ? 0.001 : token.tier === 'small' ? 0.005 : 0.01;
+    token.currentPrice = Math.max(newPrice, token.startPrice * floorMultiplier);
 
     // Add to history (keep last 60 points for smoother chart)
     token.priceHistory.push(token.currentPrice);
@@ -250,13 +357,22 @@ function tickAllPrices() {
       token.priceHistory.shift();
     }
 
-    // Check for rug (random chance increases with age)
-    const rugChance = MEME_CONSTANTS.RUG_BASE_PROBABILITY + (age / 1000) * MEME_CONSTANTS.RUG_PROBABILITY_INCREASE;
-    if (Math.random() < rugChance * 0.1) { // Much lower chance per tick
-      // Only rug if price went up significantly
-      const change = ((token.currentPrice - token.startPrice) / token.startPrice) * 100;
-      if (change > 100 && Math.random() < 0.3) {
-        executeRug(index);
+    // TIER-BASED RUG LOGIC
+    // Micro caps rug fast and often, large caps rarely rug
+    const priceChange = ((token.currentPrice - token.startPrice) / token.startPrice) * 100;
+
+    // Only check for rug if above tier's threshold
+    if (priceChange > config.rugThreshold) {
+      // Base chance * tier multiplier * age factor
+      const ageFactor = 1 + (age / 300); // Increases over 5 minutes
+      const rugChance = BASE_RUG_CHANCE * config.rugMultiplier * ageFactor;
+
+      if (Math.random() < rugChance) {
+        // Higher price = more likely to actually rug (devs take profit)
+        const profitFactor = Math.min(priceChange / 200, 1); // Max at 200% gain
+        if (Math.random() < 0.3 + profitFactor * 0.5) {
+          executeRug(index);
+        }
       }
     }
   });
@@ -267,13 +383,21 @@ function tickAllPrices() {
 
 function executeRug(tokenIndex: number) {
   const token = store.tokens[tokenIndex];
+  const config = TIER_CONFIGS[token.tier];
 
-  // Massive price crash
-  token.currentPrice = token.startPrice * 0.02;
+  // Massive price crash - micro caps go to near zero, larger caps retain some value
+  const crashMultiplier = token.tier === 'micro' ? 0.005 : token.tier === 'small' ? 0.02 : 0.05;
+  token.currentPrice = token.startPrice * crashMultiplier;
   token.priceHistory.push(token.currentPrice);
 
-  // Add rug post
-  addPost('rug_pull', `🚨 ${token.ticker} RUGGED! Dev dumped everything! 💀`);
+  // Tier-appropriate rug message
+  const rugMessages: Record<MarketCapTier, string> = {
+    micro: `🚨 ${token.ticker} RUGGED! Dev vanished with the liquidity! 💀`,
+    small: `🚨 ${token.ticker} got rugged! Team dumped their bags! 📉💀`,
+    mid: `🚨 ${token.ticker} massive dump! Insider selling detected! 🚨`,
+    large: `⚠️ ${token.ticker} whale exit! Price crashing hard! 📉`,
+  };
+  addPost('rug_pull', rugMessages[token.tier]);
 
   // If player was in this token, they got rugged
   if (store.tradingTokenIndex === tokenIndex && store.playerPosition > 0) {
@@ -288,10 +412,13 @@ function executeRug(tokenIndex: number) {
   }
 
   // Replace the rugged token with a new one after a delay
+  // Keep the same tier slot for balance
   setTimeout(() => {
     if (store.isPlaying) {
-      store.tokens[tokenIndex] = createToken();
-      addPost('organic_pump', `New token ${store.tokens[tokenIndex].ticker} just launched! ${store.tokens[tokenIndex].emoji}`);
+      store.tokens[tokenIndex] = createToken(token.tier);
+      const newToken = store.tokens[tokenIndex];
+      const tierLabel = TIER_CONFIGS[newToken.tier].label;
+      addPost('organic_pump', `New ${tierLabel} cap ${newToken.ticker} just launched! ${newToken.emoji} LFG!`);
     }
   }, 3000);
 }
@@ -350,8 +477,15 @@ function triggerEvent(config: EventConfig, tokenIndex: number) {
 
 function applyPriceImpact(tokenIndex: number, impact: number) {
   const token = store.tokens[tokenIndex];
-  const multiplier = 1 + (impact / 100);
-  token.currentPrice = Math.max(token.currentPrice * multiplier, token.startPrice * 0.001);
+  const config = TIER_CONFIGS[token.tier];
+
+  // Apply tier-based event impact multiplier
+  // Micro caps swing wildly on news, large caps barely budge
+  const adjustedImpact = impact * config.eventImpact;
+  const multiplier = 1 + (adjustedImpact / 100);
+
+  const floorMultiplier = token.tier === 'micro' ? 0.001 : token.tier === 'small' ? 0.005 : 0.01;
+  token.currentPrice = Math.max(token.currentPrice * multiplier, token.startPrice * floorMultiplier);
   token.priceHistory.push(token.currentPrice);
 
   updatePlayerPnL();

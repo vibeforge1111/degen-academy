@@ -1,5 +1,8 @@
 // Types for Pump or Dump meme coin simulator
 
+// Market cap tiers - determines volatility and risk
+export type MarketCapTier = 'micro' | 'small' | 'mid' | 'large';
+
 export interface MemeToken {
   name: string;
   ticker: string;
@@ -9,6 +12,7 @@ export interface MemeToken {
   priceHistory: number[];
   launchTime: number;
   totalSupply: number;      // Total token supply (e.g., 1 billion)
+  tier: MarketCapTier;      // Market cap tier - affects volatility & risk
 }
 
 export interface SocialPost {
