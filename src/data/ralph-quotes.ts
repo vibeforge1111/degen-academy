@@ -117,7 +117,9 @@ export const RALPH_QUOTES = {
   ],
 } as const;
 
-export function getRandomQuote(category: keyof typeof RALPH_QUOTES): string {
+export type QuoteCategory = keyof typeof RALPH_QUOTES;
+
+export function getRandomQuote(category: QuoteCategory): string {
   const quotes = RALPH_QUOTES[category];
   const index = Math.floor(Math.random() * quotes.length);
   return quotes[index] ?? quotes[0] ?? "...";

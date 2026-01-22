@@ -5,6 +5,7 @@ export type RiskLevel = 'safe' | 'medium' | 'degen';
 export interface Pool {
   id: string;
   name: string;
+  emoji: string;
   apy: number;
   riskLevel: RiskLevel;
   deposited: number;
@@ -76,6 +77,7 @@ export interface GameSettings {
 export interface PoolConfig {
   id: string;
   name: string;
+  emoji: string;
   apy: number;
   riskLevel: RiskLevel;
 }
