@@ -32,14 +32,12 @@ Can you reach $1M without getting rugged?
   }
 </script>
 
-<div class="min-h-screen min-h-dvh flex flex-col bg-cover bg-center relative"
-     style="background-image: url('/lab-background.png');">
-
+<div class="death-screen">
   <!-- Dark red overlay -->
-  <div class="absolute inset-0 bg-gradient-to-b from-red-950/80 via-[var(--color-bg-dark)]/85 to-[var(--color-bg-dark)]/95"></div>
+  <div class="overlay"></div>
 
-  <!-- Animated particles (blood drip effect) -->
-  <div class="absolute inset-0 overflow-hidden pointer-events-none">
+  <!-- Blood drip effects -->
+  <div class="blood-container">
     {#each Array(8) as _, i}
       <div
         class="blood-drop"
@@ -48,152 +46,146 @@ Can you reach $1M without getting rugged?
     {/each}
   </div>
 
-  <!-- Content -->
-  <div class="relative z-10 flex-1 flex flex-col items-center justify-center p-6 safe-area-top safe-area-bottom">
-    <!-- Death Icon with glow -->
-    <div class="relative mb-6">
-      <div class="absolute inset-0 text-8xl blur-lg text-red-500/50 animate-pulse">☠️</div>
-      <div class="text-8xl relative animate-float filter drop-shadow-[0_0_30px_rgba(239,68,68,0.5)]">
-        ☠️
+  <!-- Main Content -->
+  <div class="content">
+    <!-- Header (minimal branding) -->
+    <header class="header">
+      <div class="logo-section">
+        <img src="/ralph-logo.png" alt="Ralph" class="logo" />
+        <h1 class="title">Ralph's Degen Academy</h1>
       </div>
-    </div>
+    </header>
 
-    <!-- Title -->
-    <h1 class="font-display text-5xl sm:text-6xl font-black text-transparent bg-clip-text
-               bg-gradient-to-b from-red-400 to-red-600 mb-2 text-center
-               drop-shadow-[0_0_20px_rgba(239,68,68,0.5)]">
-      REKT
-    </h1>
-    <p class="text-zinc-400 text-lg mb-8 text-center">
-      Your portfolio has been liquidated
-    </p>
+    <!-- Death Content -->
+    <div class="death-content">
+      <!-- Skull with glow -->
+      <div class="skull-container">
+        <div class="skull-glow">☠️</div>
+        <div class="skull">☠️</div>
+      </div>
 
-    <!-- Stats Card -->
-    <div class="relative w-full max-w-sm mb-8 rounded-2xl overflow-hidden">
-      <!-- Card background -->
-      <div class="absolute inset-0 bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-slate-950/95 backdrop-blur-md"></div>
-      <div class="absolute inset-0 border-2 border-red-500/30 rounded-2xl"></div>
+      <!-- REKT Title -->
+      <h2 class="rekt-title">REKT</h2>
+      <p class="rekt-subtitle">Your portfolio has been liquidated</p>
 
-      <div class="relative p-6">
-        <h2 class="text-red-400/80 text-xs uppercase tracking-widest font-bold mb-4 text-center flex items-center justify-center gap-2">
+      <!-- Stats Panel -->
+      <div class="stats-panel">
+        <div class="panel-header">
           <span>💀</span>
-          Run Statistics
+          <span>Run Statistics</span>
           <span>💀</span>
-        </h2>
+        </div>
 
-        <div class="space-y-3">
-          <div class="flex justify-between items-center p-2 rounded-lg bg-slate-800/50">
-            <span class="text-zinc-400 text-sm">Survival Time</span>
-            <span class="font-mono text-white font-bold">{formatTime(game.currentRun.elapsed)}</span>
+        <div class="stats-grid">
+          <div class="stat-row">
+            <span class="stat-label">Survival Time</span>
+            <span class="stat-value">{formatTime(game.currentRun.elapsed)}</span>
           </div>
-          <div class="flex justify-between items-center p-2 rounded-lg bg-slate-800/50">
-            <span class="text-zinc-400 text-sm">Peak Portfolio</span>
-            <span class="font-mono text-emerald-400 font-bold">
-              ${game.stats.highestPortfolio.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-            </span>
+          <div class="stat-row">
+            <span class="stat-label">Peak Portfolio</span>
+            <span class="stat-value green">${game.stats.highestPortfolio.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
           </div>
-          <div class="flex justify-between items-center p-2 rounded-lg bg-slate-800/50">
-            <span class="text-zinc-400 text-sm">Rugs Eaten</span>
-            <span class="font-mono text-red-400 font-bold">{game.stats.rugsEaten}</span>
+          <div class="stat-row">
+            <span class="stat-label">Rugs Eaten</span>
+            <span class="stat-value red">{game.stats.rugsEaten}</span>
           </div>
-          <div class="flex justify-between items-center p-2 rounded-lg bg-slate-800/50">
-            <span class="text-zinc-400 text-sm">Halvings</span>
-            <span class="font-mono text-amber-400 font-bold">{game.currentRun.halvingCount}</span>
+          <div class="stat-row">
+            <span class="stat-label">Halvings</span>
+            <span class="stat-value amber">{game.currentRun.halvingCount}</span>
           </div>
         </div>
 
-        <div class="h-px bg-gradient-to-r from-transparent via-red-500/50 to-transparent my-4"></div>
+        <div class="divider"></div>
 
-        <div class="space-y-2">
-          <div class="flex justify-between items-center">
-            <span class="text-zinc-500 text-sm">Total Games</span>
-            <span class="font-mono text-cyan-400 font-bold">{game.stats.gamesPlayed}</span>
+        <div class="lifetime-stats">
+          <div class="stat-row small">
+            <span class="stat-label">Total Games</span>
+            <span class="stat-value cyan">{game.stats.gamesPlayed}</span>
           </div>
           {#if game.stats.fastestWin}
-            <div class="flex justify-between items-center">
-              <span class="text-zinc-500 text-sm">Best Win Time</span>
-              <span class="font-mono text-purple-400 font-bold">{formatTime(game.stats.fastestWin)}</span>
+            <div class="stat-row small">
+              <span class="stat-label">Best Win Time</span>
+              <span class="stat-value purple">{formatTime(game.stats.fastestWin)}</span>
             </div>
           {/if}
         </div>
       </div>
-    </div>
 
-    <!-- Ralph Quote -->
-    <div class="relative w-full max-w-sm mb-8 rounded-2xl overflow-hidden">
-      <div class="absolute inset-0 bg-gradient-to-r from-red-900/30 via-slate-900/80 to-red-900/30 backdrop-blur-md"></div>
-      <div class="absolute inset-0 border-2 border-purple-500/30 rounded-2xl"></div>
-      <div class="absolute left-0 top-0 bottom-0 w-1 bg-purple-500"></div>
-
-      <div class="relative p-4 flex items-center gap-4">
-        <div class="relative flex-shrink-0">
-          <div class="absolute inset-0 bg-purple-500/30 rounded-full blur-md"></div>
-          <div class="relative w-12 h-12 rounded-full bg-gradient-to-br from-purple-600 to-fuchsia-600
-                      flex items-center justify-center border-2 border-purple-400/50">
-            <span class="text-2xl">🐕</span>
-          </div>
+      <!-- Ralph Quote Panel -->
+      <div class="ralph-panel">
+        <div class="ralph-border"></div>
+        <div class="ralph-avatar">
+          <span>🐕</span>
         </div>
-        <div class="flex-1">
-          <p class="text-purple-400 text-sm font-bold uppercase tracking-wider mb-1">Ralph</p>
-          <p class="text-zinc-300 font-handwritten" style="font-size: 17px;">"{quote}"</p>
+        <div class="ralph-content">
+          <p class="ralph-name">Ralph</p>
+          <p class="ralph-quote">"{quote}"</p>
         </div>
       </div>
-    </div>
 
-    <!-- Action Buttons -->
-    <div class="flex gap-4">
-      <button
-        onclick={() => startGame()}
-        class="relative overflow-hidden bg-gradient-to-r from-red-600 to-red-500
-               hover:from-red-500 hover:to-red-400
-               active:from-red-700 active:to-red-600
-               text-white font-display font-bold text-lg
-               px-8 py-4 rounded-xl
-               shadow-xl shadow-red-500/40 hover:shadow-red-500/60
-               transition-all duration-200 transform hover:scale-105 active:scale-100"
-      >
-        <span class="relative z-10 flex items-center gap-2">
+      <!-- Action Buttons -->
+      <div class="actions">
+        <button class="btn btn-primary" onclick={() => startGame()}>
           <span>🔄</span>
           TRY AGAIN
-        </span>
-      </button>
+        </button>
 
-      <button
-        onclick={() => shareToTwitter()}
-        class="relative overflow-hidden bg-gradient-to-r from-slate-700 to-slate-600
-               hover:from-slate-600 hover:to-slate-500
-               active:from-slate-800 active:to-slate-700
-               text-white font-display font-bold text-lg
-               px-8 py-4 rounded-xl
-               shadow-xl shadow-slate-500/30 hover:shadow-slate-500/50
-               transition-all duration-200 transform hover:scale-105 active:scale-100"
-      >
-        <span class="relative z-10 flex items-center gap-2">
-          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+        <button class="btn btn-secondary" onclick={() => shareToTwitter()}>
+          <svg class="x-icon" viewBox="0 0 24 24" fill="currentColor">
             <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
           </svg>
           SHARE L
-        </span>
-      </button>
+        </button>
+      </div>
     </div>
-  </div>
 
-  <!-- Footer -->
-  <footer class="relative z-10 text-center py-4">
-    <p class="font-handwritten text-zinc-500 text-sm">
-      The real rug was the lessons we learned along the way
-    </p>
-  </footer>
+    <!-- Footer -->
+    <footer class="footer">
+      <p>The real rug was the lessons we learned along the way</p>
+    </footer>
+  </div>
 </div>
 
 <style>
-  @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
+  .death-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    background-image: url('/ralph-lab-bg.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    position: relative;
   }
 
-  .animate-float {
-    animation: float 2s ease-in-out infinite;
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom,
+      rgba(127, 29, 29, 0.7) 0%,
+      rgba(15, 23, 42, 0.9) 50%,
+      rgba(15, 23, 42, 0.95) 100%
+    );
+  }
+
+  .blood-container {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .blood-drop {
+    position: absolute;
+    width: 4px;
+    height: 20px;
+    background: linear-gradient(to bottom, rgba(239, 68, 68, 0.6), transparent);
+    left: var(--x);
+    top: -20px;
+    animation: blood-drop 3s ease-in infinite;
+    animation-delay: var(--delay);
+    border-radius: 0 0 4px 4px;
   }
 
   @keyframes blood-drop {
@@ -210,15 +202,301 @@ Can you reach $1M without getting rugged?
     }
   }
 
-  .blood-drop {
+  .content {
+    position: relative;
+    z-index: 10;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 32px;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 24px;
+  }
+
+  .logo-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    object-fit: cover;
+  }
+
+  .title {
+    font-size: 18px;
+    font-weight: 700;
+    color: white;
+    font-family: 'Permanent Marker', cursive;
+  }
+
+  /* Death Content */
+  .death-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    max-width: 400px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  /* Skull */
+  .skull-container {
+    position: relative;
+    margin-bottom: 8px;
+  }
+
+  .skull-glow {
     position: absolute;
-    width: 4px;
-    height: 20px;
-    background: linear-gradient(to bottom, rgba(239, 68, 68, 0.6), transparent);
-    left: var(--x);
-    top: -20px;
-    animation: blood-drop 3s ease-in infinite;
-    animation-delay: var(--delay);
-    border-radius: 0 0 4px 4px;
+    inset: 0;
+    font-size: 80px;
+    filter: blur(15px);
+    color: rgba(239, 68, 68, 0.5);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  .skull {
+    font-size: 80px;
+    position: relative;
+    animation: float 2s ease-in-out infinite;
+    filter: drop-shadow(0 0 30px rgba(239, 68, 68, 0.5));
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.8; }
+  }
+
+  /* REKT Title */
+  .rekt-title {
+    font-size: 56px;
+    font-weight: 900;
+    background: linear-gradient(to bottom, #f87171, #dc2626);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 0 40px rgba(239, 68, 68, 0.5);
+    font-family: 'Permanent Marker', cursive;
+    margin: 0;
+  }
+
+  .rekt-subtitle {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 14px;
+    margin: 0 0 8px 0;
+  }
+
+  /* Stats Panel - matches game style */
+  .stats-panel {
+    width: 100%;
+    background: #2d2d3a;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 16px;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(239, 68, 68, 0.8);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+  }
+
+  .stats-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 6px;
+  }
+
+  .stat-row.small {
+    padding: 6px 12px;
+    background: transparent;
+  }
+
+  .stat-label {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  .stat-value {
+    font-size: 14px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    color: white;
+  }
+
+  .stat-value.green { color: #4ade80; }
+  .stat-value.red { color: #f87171; }
+  .stat-value.amber { color: #fbbf24; }
+  .stat-value.cyan { color: #22d3ee; }
+  .stat-value.purple { color: #a78bfa; }
+
+  .divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+    margin: 12px 0;
+  }
+
+  .lifetime-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  /* Ralph Panel - matches game style */
+  .ralph-panel {
+    width: 100%;
+    background: #2d2d3a;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ralph-border {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: #a78bfa;
+  }
+
+  .ralph-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #7c3aed, #c026d3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+    border: 2px solid rgba(167, 139, 250, 0.5);
+  }
+
+  .ralph-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ralph-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: #a78bfa;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 4px 0;
+  }
+
+  .ralph-quote {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8);
+    font-family: 'Permanent Marker', cursive;
+    margin: 0;
+    line-height: 1.4;
+  }
+
+  /* Action Buttons */
+  .actions {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    color: white;
+    box-shadow: 0 4px 20px rgba(220, 38, 38, 0.4);
+  }
+
+  .btn-primary:hover {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(220, 38, 38, 0.5);
+  }
+
+  .btn-primary:active {
+    transform: translateY(0);
+  }
+
+  .btn-secondary {
+    background: #2d2d3a;
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .btn-secondary:hover {
+    background: #3d3d4a;
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .x-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 16px 0;
+  }
+
+  .footer p {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.3);
+    font-family: 'Permanent Marker', cursive;
+    margin: 0;
   }
 </style>
