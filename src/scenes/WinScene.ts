@@ -19,9 +19,20 @@ export class WinScene extends Phaser.Scene {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
 
-    // Purple/gold gradient-ish background
-    this.add.rectangle(width / 2, height / 2, width, height, 0x0F0F1A);
+    // Lab background
+    const bg = this.add.image(width / 2, height / 2, 'lab-bg');
+    bg.setDisplaySize(width, height);
+
+    // Dark overlay with purple/gold victory tint
+    this.add.rectangle(width / 2, height / 2, width, height, 0x0a0a14, 0.75);
     this.add.rectangle(width / 2, height / 2, width, height, 0x8B5CF6, 0.1);
+
+    // Scanlines
+    const scanlines = this.add.graphics();
+    scanlines.fillStyle(0x000000, 0.08);
+    for (let y = 0; y < height; y += 4) {
+      scanlines.fillRect(0, y, width, 2);
+    }
 
     // Confetti effect (simple particles)
     this.createConfetti();

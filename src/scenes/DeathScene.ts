@@ -19,9 +19,20 @@ export class DeathScene extends Phaser.Scene {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
 
-    // Red-tinted background
-    this.add.rectangle(width / 2, height / 2, width, height, 0x0F0F1A);
-    this.add.rectangle(width / 2, height / 2, width, height, 0xEF4444, 0.1);
+    // Lab background
+    const bg = this.add.image(width / 2, height / 2, 'lab-bg');
+    bg.setDisplaySize(width, height);
+
+    // Dark overlay with red tint for death
+    this.add.rectangle(width / 2, height / 2, width, height, 0x0a0a14, 0.8);
+    this.add.rectangle(width / 2, height / 2, width, height, 0xEF4444, 0.15);
+
+    // Scanlines
+    const scanlines = this.add.graphics();
+    scanlines.fillStyle(0x000000, 0.1);
+    for (let y = 0; y < height; y += 4) {
+      scanlines.fillRect(0, y, width, 2);
+    }
 
     // Skull
     this.add.text(width / 2, 120, '💀', {

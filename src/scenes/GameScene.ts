@@ -94,11 +94,15 @@ export class GameScene extends Phaser.Scene {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
 
-    // Background with subtle gradient effect
-    this.add.rectangle(width / 2, height / 2, width, height, COLORS.bgDark);
+    // Lab background image
+    const bg = this.add.image(width / 2, height / 2, 'lab-bg');
+    bg.setDisplaySize(width, height);
 
-    // Add subtle grid pattern
-    this.createBackgroundPattern();
+    // Dark overlay for UI readability
+    this.add.rectangle(width / 2, height / 2, width, height, 0x0a0a14, 0.75);
+
+    // Scanlines effect for immersion
+    this.createScanlines();
 
     // Top bar
     this.createTopBar();
@@ -116,21 +120,15 @@ export class GameScene extends Phaser.Scene {
     this.toastContainer = this.add.container(width - 20, 100);
   }
 
-  private createBackgroundPattern(): void {
+  private createScanlines(): void {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
-    const graphics = this.add.graphics();
+    const scanlines = this.add.graphics();
 
-    graphics.lineStyle(1, 0x1a1a2e, 0.3);
-
-    // Vertical lines
-    for (let x = 0; x < width; x += 40) {
-      graphics.lineBetween(x, 0, x, height);
-    }
-
-    // Horizontal lines
-    for (let y = 0; y < height; y += 40) {
-      graphics.lineBetween(0, y, width, y);
+    // Subtle scanlines effect for CRT/retro feel
+    scanlines.fillStyle(0x000000, 0.08);
+    for (let y = 0; y < height; y += 4) {
+      scanlines.fillRect(0, y, width, 2);
     }
   }
 
