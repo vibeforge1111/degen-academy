@@ -73,7 +73,8 @@ export type MemeEventType =
 export interface MemeGameState {
   token: MemeToken;
   posts: SocialPost[];
-  playerPosition: number;      // $ amount invested
+  playerPosition: number;      // $ amount invested (after slippage)
+  playerCostBasis: number;     // Actual $ spent from cash (before slippage)
   playerEntryPrice: number;    // Average entry price
   playerPnL: number;           // Current profit/loss
   gamePhase: 'pregame' | 'live' | 'rugged' | 'mooned' | 'exited';

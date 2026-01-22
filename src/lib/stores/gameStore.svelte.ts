@@ -716,6 +716,20 @@ export function buyInsurance() {
   showToast('🏥 Insurance Active!', '50% damage reduction for 60s', 'success');
 }
 
+// ===========================================
+// PORTFOLIO MODIFICATION (for meme trading)
+// ===========================================
+
+export function addToPortfolio(amount: number) {
+  store.game.portfolio += amount;
+}
+
+export function deductFromPortfolio(amount: number): boolean {
+  if (store.game.portfolio < amount) return false;
+  store.game.portfolio -= amount;
+  return true;
+}
+
 // Toggle hedge mode
 export function toggleHedge() {
   if (store.game.items.hedgeMode) {

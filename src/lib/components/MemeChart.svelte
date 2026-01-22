@@ -148,11 +148,11 @@
 <style>
   .chart-container {
     width: 100%;
-    height: 200px;
+    height: 320px;
     background: linear-gradient(180deg, rgba(30, 30, 50, 0.8) 0%, rgba(20, 20, 35, 0.9) 100%);
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 16px;
+    padding: 20px;
     display: flex;
     flex-direction: column;
     position: relative;

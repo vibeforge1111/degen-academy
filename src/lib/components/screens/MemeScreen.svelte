@@ -8,7 +8,6 @@
     playerPosition,
     playerPnL,
     timeRemaining,
-    rugProbability,
     priceChange,
     startMemeGame,
     buyToken,
@@ -17,7 +16,7 @@
     formatPrice,
     getChangeColor,
   } from '../../stores/memeStore.svelte';
-  import { portfolio, setScreen } from '../../stores/gameStore.svelte';
+  import { portfolio, setScreen, getTotalDeposited } from '../../stores/gameStore.svelte';
 
   const game = $derived(memeGame.value);
   const playing = $derived(isMemePlaying.value);
@@ -25,9 +24,13 @@
   const position = $derived(playerPosition.value);
   const pnl = $derived(playerPnL.value);
   const time = $derived(timeRemaining.value);
-  const rugChance = $derived(rugProbability.value);
   const change = $derived(priceChange.value);
-  const mainPortfolio = $derived(portfolio.value);
+  const cashBalance = $derived(portfolio.value);
+
+  // Wallet breakdown
+  const totalInPools = $derived(getTotalDeposited());
+  const tradingPosition = $derived(position);
+  const totalNetWorth = $derived(cashBalance + totalInPools + tradingPosition);
 
   const pnlColor = $derived(pnl >= 0 ? '#4ade80' : '#ef4444');
   const changeColor = $derived(getChangeColor(change));
@@ -36,172 +39,216 @@
   const buyAmounts = [100, 500, 1000];
 
   function formatMoney(amount: number): string {
-    if (Math.abs(amount) >= 1000) return `$${(amount / 1000).toFixed(1)}K`;
+    if (amount >= 1_000_000) {
+      return `$${(amount / 1_000_000).toFixed(2)}M`;
+    } else if (amount >= 1_000) {
+      return `$${(amount / 1_000).toFixed(1)}K`;
+    }
     return `$${amount.toFixed(0)}`;
   }
 </script>
 
-<div class="meme-screen">
-  <!-- Header -->
-  <header class="header">
-    <div class="header-left">
-      <!-- Mode Switcher -->
-      <div class="mode-switcher">
-        <button class="mode-tab" onclick={() => setScreen('game')}>
-          <span>📊</span>
-          <span>Yield Farms</span>
-        </button>
-        <button class="mode-tab active">
-          <span>📈</span>
-          <span>Meme Coins</span>
-        </button>
-      </div>
+<div class="min-h-screen min-h-dvh flex flex-col bg-cover bg-center bg-fixed relative"
+     style="background-image: url('/ralph-lab-bg.png');">
 
-      <!-- Token Info -->
-      <div class="token-info">
-        <span class="token-emoji">{token.emoji}</span>
-        <div class="token-details">
-          <h1 class="token-name">{token.name}</h1>
-          <span class="token-ticker">{token.ticker}</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="header-stats">
-      {#if playing}
-        <!-- Timer -->
-        <div class="stat-box timer" class:urgent={time < 20}>
-          <span class="stat-label">TIME</span>
-          <span class="stat-value">{time}s</span>
-        </div>
-
-        <!-- Rug Risk Meter -->
-        <div class="stat-box risk" class:high={rugChance > 50} class:critical={rugChance > 75}>
-          <span class="stat-label">RUG RISK</span>
-          <div class="risk-bar">
-            <div class="risk-fill" style="width: {Math.min(rugChance, 100)}%"></div>
-          </div>
-          <span class="stat-value">{rugChance.toFixed(0)}%</span>
-        </div>
-      {/if}
-
-      <!-- Wallet -->
-      <div class="stat-box wallet">
-        <span class="stat-label">WALLET</span>
-        <span class="stat-value">{formatMoney(mainPortfolio)}</span>
-      </div>
-    </div>
-  </header>
+  <!-- Dark overlay -->
+  <div class="absolute inset-0 bg-slate-950/85"></div>
 
   <!-- Main Content -->
-  <main class="main-content">
-    <!-- Left: Chart -->
-    <div class="chart-section">
-      <MemeChart />
+  <div class="relative z-10 flex-1 flex flex-col h-screen h-dvh overflow-hidden">
 
-      <!-- Position Info -->
-      {#if position > 0}
-        <div class="position-box">
-          <div class="position-row">
-            <span class="position-label">Your Position</span>
-            <span class="position-value">{formatMoney(position)}</span>
+    <!-- Header Section (same as GameScreen) -->
+    <header class="flex-shrink-0" style="padding: 20px 32px;">
+      <!-- Top Row: Logo, Controls, Wallet -->
+      <div class="flex items-center justify-between" style="margin-bottom: 16px;">
+        <!-- Logo & Title -->
+        <div class="flex items-center gap-3">
+          <img src="/ralph-logo.png" alt="Ralph" class="w-10 h-10 rounded-lg object-cover" />
+          <h1 class="text-lg font-chalk text-white">Ralph's Degen Academy</h1>
+        </div>
+
+        <!-- Mode Switcher -->
+        <div class="mode-switcher">
+          <button class="mode-tab" onclick={() => setScreen('game')}>
+            <span>📊</span>
+            <span>Yield Farms</span>
+          </button>
+          <button class="mode-tab active">
+            <span>📈</span>
+            <span>Meme Coins</span>
+          </button>
+        </div>
+
+        <!-- Wallet with breakdown -->
+        <div style="display: flex; align-items: center; gap: 16px; padding: 10px 20px; background: #2d2d3a; border-radius: 8px;">
+          <!-- Total Portfolio -->
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color: #fff; opacity: 0.9;">
+              <path d="M3 7c0-1.1.9-2 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>
+              <path d="M16 12a1 1 0 1 0 2 0 1 1 0 0 0-2 0"/>
+              <path d="M3 7l4-3h10l4 3"/>
+            </svg>
+            <div style="display: flex; flex-direction: column; line-height: 1.2;">
+              <span style="font-size: 9px; color: rgba(255,255,255,0.5); text-transform: uppercase;">Total</span>
+              <span class="font-mono font-bold" style="font-size: 14px; color: #fff;">${totalNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
           </div>
-          <div class="position-row">
-            <span class="position-label">P&L</span>
-            <span class="position-value" style="color: {pnlColor}">
-              {pnl >= 0 ? '+' : ''}{formatMoney(pnl)}
-              ({pnl >= 0 ? '+' : ''}{((pnl / position) * 100).toFixed(1)}%)
+
+          <div style="width: 1px; height: 28px; background: rgba(255,255,255,0.15);"></div>
+
+          <!-- In Pools + Trading -->
+          <div style="display: flex; flex-direction: column; line-height: 1.2;">
+            <span style="font-size: 9px; color: rgba(255,255,255,0.5); text-transform: uppercase;">Pools + Trading</span>
+            <span class="font-mono font-semibold" style="font-size: 13px; color: #a78bfa;">${(totalInPools + tradingPosition).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          </div>
+
+          <div style="width: 1px; height: 28px; background: rgba(255,255,255,0.15);"></div>
+
+          <!-- Cash Available -->
+          <div style="display: flex; flex-direction: column; line-height: 1.2;">
+            <span style="font-size: 9px; color: rgba(255,255,255,0.5); text-transform: uppercase;">Cash</span>
+            <span class="font-mono font-semibold" style="font-size: 13px; color: #4ade80;">${cashBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Second Row: Token Info + Stats -->
+      <div style="display: flex; gap: 16px;">
+        <!-- Token Panel (like Ralph panel) -->
+        <div class="ralph-panel" style="flex: 1; display: flex; align-items: center; justify-content: space-between;">
+          <!-- Token Info (left) -->
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 32px;">{token.emoji}</span>
+            <div>
+              <h2 class="font-chalk text-white" style="font-size: 18px; line-height: 1.2;">{token.name}</h2>
+              <span class="font-mono" style="font-size: 12px; color: rgba(255,255,255,0.5);">{token.ticker}</span>
+            </div>
+          </div>
+
+          <!-- Position Info (center) -->
+          {#if position > 0}
+            <div style="display: flex; align-items: center; gap: 16px;">
+              <div style="text-align: center;">
+                <span style="font-size: 9px; color: rgba(255,255,255,0.5); text-transform: uppercase;">Position</span>
+                <p class="font-mono font-bold" style="font-size: 14px; color: #fff;">{formatMoney(position)}</p>
+              </div>
+              <div style="text-align: center;">
+                <span style="font-size: 9px; color: rgba(255,255,255,0.5); text-transform: uppercase;">P&L</span>
+                <p class="font-mono font-bold" style="font-size: 14px; color: {pnlColor};">
+                  {pnl >= 0 ? '+' : ''}{formatMoney(pnl)}
+                </p>
+              </div>
+            </div>
+          {/if}
+
+          <!-- Watching Time (right) -->
+          {#if playing}
+            <div style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: rgba(139, 92, 246, 0.2); border-radius: 6px;">
+              <span style="font-size: 9px; color: rgba(255,255,255,0.5); text-transform: uppercase;">Watching</span>
+              <span class="font-mono font-bold" style="font-size: 14px; color: #a78bfa;">{90 - time}s</span>
+            </div>
+          {/if}
+        </div>
+
+        <!-- Stats Panel -->
+        <div class="stats-panel">
+          <!-- Price Change -->
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 10px; color: rgba(255,255,255,0.4);">Change</span>
+            <span class="font-mono font-bold" style="font-size: 13px; color: {changeColor};">
+              {change >= 0 ? '+' : ''}{change.toFixed(1)}%
             </span>
           </div>
         </div>
-      {/if}
+      </div>
+    </header>
 
-      <!-- Game Controls -->
-      <div class="controls">
-        {#if !playing && game.gamePhase === 'pregame'}
-          <!-- Start Game -->
-          <button class="btn-start" onclick={() => startMemeGame()}>
-            <span class="btn-icon">🎰</span>
-            <span>Start Trading</span>
-          </button>
-        {:else if playing}
-          <!-- Trading Controls -->
-          <div class="trading-controls">
-            <!-- Buy Buttons -->
-            <div class="buy-buttons">
-              {#each buyAmounts as amount}
-                <button
-                  class="btn-buy"
-                  onclick={() => buyToken(amount)}
-                  disabled={mainPortfolio < amount}
-                >
-                  Buy {formatMoney(amount)}
-                </button>
-              {/each}
-            </div>
+    <!-- Main Content Area -->
+    <div class="flex-1 overflow-hidden" style="padding: 0 32px 32px 32px;">
+      <div class="main-grid">
+        <!-- Left: Chart + Controls -->
+        <div class="chart-section">
+          <MemeChart />
 
-            <!-- Sell Button -->
-            {#if position > 0}
-              <button class="btn-sell" onclick={() => sellAll()}>
-                <span>SELL ALL</span>
-                <span class="sell-value" style="color: {pnlColor}">
-                  ({pnl >= 0 ? '+' : ''}{formatMoney(pnl)})
-                </span>
+          <!-- Game Controls -->
+          <div class="controls">
+            {#if !playing && game.gamePhase === 'pregame'}
+              <!-- Start Game -->
+              <button class="btn-start" onclick={() => startMemeGame()}>
+                <span class="btn-icon">🎰</span>
+                <span>Start Trading</span>
               </button>
-            {/if}
-          </div>
-        {:else}
-          <!-- Game Over -->
-          <div class="game-over">
-            {#if game.gamePhase === 'rugged'}
-              <div class="result rugged">
-                <span class="result-icon">💀</span>
-                <span class="result-title">RUGGED!</span>
-                <span class="result-subtitle">The dev pulled the rug. Classic.</span>
-              </div>
-            {:else if game.gamePhase === 'mooned'}
-              <div class="result mooned">
-                <span class="result-icon">🚀</span>
-                <span class="result-title">MOON MISSION!</span>
-                <span class="result-subtitle">You caught a unicorn!</span>
+            {:else if playing}
+              <!-- Trading Controls -->
+              <div class="trading-controls">
+                <!-- Buy Buttons -->
+                <div class="buy-buttons">
+                  {#each buyAmounts as amount}
+                    <button
+                      class="btn-buy"
+                      onclick={() => buyToken(amount)}
+                      disabled={cashBalance < amount}
+                    >
+                      Buy {formatMoney(amount)}
+                    </button>
+                  {/each}
+                </div>
+
+                <!-- Sell Button -->
+                {#if position > 0}
+                  <button class="btn-sell" onclick={() => sellAll()}>
+                    <span>SELL ALL</span>
+                    <span class="sell-value" style="color: {pnlColor}">
+                      ({pnl >= 0 ? '+' : ''}{formatMoney(pnl)})
+                    </span>
+                  </button>
+                {/if}
               </div>
             {:else}
-              <div class="result exited">
-                <span class="result-icon">{pnl >= 0 ? '💰' : '📉'}</span>
-                <span class="result-title">{pnl >= 0 ? 'PROFIT!' : 'LOSS'}</span>
-                <span class="result-subtitle" style="color: {pnlColor}">
-                  {pnl >= 0 ? '+' : ''}{formatMoney(pnl)}
-                </span>
+              <!-- Game Over -->
+              <div class="game-over">
+                {#if game.gamePhase === 'rugged'}
+                  <div class="result rugged">
+                    <span class="result-icon">💀</span>
+                    <span class="result-title">RUGGED!</span>
+                    <span class="result-subtitle">The dev pulled the rug. Classic.</span>
+                  </div>
+                {:else if game.gamePhase === 'mooned'}
+                  <div class="result mooned">
+                    <span class="result-icon">🚀</span>
+                    <span class="result-title">MOON MISSION!</span>
+                    <span class="result-subtitle">You caught a unicorn!</span>
+                  </div>
+                {:else}
+                  <div class="result exited">
+                    <span class="result-icon">{pnl >= 0 ? '💰' : '📉'}</span>
+                    <span class="result-title">{pnl >= 0 ? 'PROFIT!' : 'LOSS'}</span>
+                    <span class="result-subtitle" style="color: {pnlColor}">
+                      {pnl >= 0 ? '+' : ''}{formatMoney(pnl)}
+                    </span>
+                  </div>
+                {/if}
+
+                <button class="btn-play-again" onclick={() => playAgain()}>
+                  <span>🎲</span>
+                  <span>Play Again</span>
+                </button>
               </div>
             {/if}
-
-            <button class="btn-play-again" onclick={() => playAgain()}>
-              <span>🎲</span>
-              <span>Play Again</span>
-            </button>
           </div>
-        {/if}
+        </div>
+
+        <!-- Right: Social Feed -->
+        <div class="feed-section">
+          <SocialFeed />
+        </div>
       </div>
     </div>
-
-    <!-- Right: Social Feed -->
-    <div class="feed-section">
-      <SocialFeed />
-    </div>
-  </main>
+  </div>
 </div>
 
 <style>
-  .meme-screen {
-    min-height: 100vh;
-    min-height: 100dvh;
-    background: linear-gradient(180deg, #0f0f1a 0%, #1a1a2e 100%);
-    display: flex;
-    flex-direction: column;
-    padding: 20px;
-  }
-
-  /* Mode Switcher */
+  /* Mode Switcher (same as GameScreen) */
   .mode-switcher {
     display: flex;
     gap: 4px;
@@ -236,134 +283,35 @@
     box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
   }
 
-  /* Header */
-  .header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-    gap: 16px;
+  /* Ralph/Token panel (same as GameScreen) */
+  .ralph-panel {
+    padding: 10px 14px;
+    background: #2d2d3a;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
   }
 
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-  }
-
-  .token-info {
+  /* Stats panel (same as GameScreen) */
+  .stats-panel {
     display: flex;
     align-items: center;
     gap: 12px;
-  }
-
-  .token-emoji {
-    font-size: 40px;
-    width: 56px;
-    height: 56px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(167, 139, 250, 0.2);
-    border-radius: 12px;
-  }
-
-  .token-details {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .token-name {
-    font-size: 24px;
-    font-weight: 700;
-    color: white;
-    font-family: 'Space Grotesk', sans-serif;
-  }
-
-  .token-ticker {
-    font-size: 14px;
-    color: rgba(255, 255, 255, 0.5);
-    font-family: 'JetBrains Mono', monospace;
-  }
-
-  .header-stats {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-
-  .stat-box {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
     padding: 10px 16px;
-    background: rgba(30, 30, 50, 0.8);
-    border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    min-width: 80px;
+    background: #2d2d3a;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
   }
 
-  .stat-label {
-    font-size: 9px;
-    font-weight: 600;
-    color: rgba(255, 255, 255, 0.5);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .stat-value {
-    font-size: 18px;
-    font-weight: 700;
-    color: white;
-    font-family: 'JetBrains Mono', monospace;
-  }
-
-  .timer.urgent {
-    border-color: rgba(239, 68, 68, 0.5);
-    animation: pulse-urgent 0.5s ease-in-out infinite;
-  }
-
-  @keyframes pulse-urgent {
-    0%, 100% { background: rgba(239, 68, 68, 0.2); }
-    50% { background: rgba(239, 68, 68, 0.4); }
-  }
-
-  .risk {
-    min-width: 100px;
-  }
-
-  .risk-bar {
-    width: 100%;
-    height: 4px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 2px;
-    margin: 4px 0;
-    overflow: hidden;
-  }
-
-  .risk-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #22c55e, #f59e0b, #ef4444);
-    border-radius: 2px;
-    transition: width 0.3s ease;
-  }
-
-  .risk.high .stat-value { color: #f59e0b; }
-  .risk.critical .stat-value { color: #ef4444; }
-  .risk.critical { border-color: rgba(239, 68, 68, 0.5); }
-
-  /* Main Content */
-  .main-content {
-    flex: 1;
+  /* Main Grid Layout */
+  .main-grid {
     display: grid;
     grid-template-columns: 1fr 380px;
-    gap: 20px;
-    min-height: 0;
+    gap: 24px;
+    height: 100%;
   }
 
-  @media (max-width: 900px) {
-    .main-content {
+  @media (max-width: 1024px) {
+    .main-grid {
       grid-template-columns: 1fr;
     }
 
@@ -376,40 +324,11 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
+    min-height: 0;
   }
 
   .feed-section {
     min-height: 400px;
-  }
-
-  /* Position Box */
-  .position-box {
-    background: rgba(30, 30, 50, 0.8);
-    border-radius: 12px;
-    border: 1px solid rgba(167, 139, 250, 0.3);
-    padding: 16px;
-  }
-
-  .position-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .position-row:not(:last-child) {
-    margin-bottom: 8px;
-  }
-
-  .position-label {
-    font-size: 13px;
-    color: rgba(255, 255, 255, 0.6);
-  }
-
-  .position-value {
-    font-size: 16px;
-    font-weight: 600;
-    font-family: 'JetBrains Mono', monospace;
-    color: white;
   }
 
   /* Controls */

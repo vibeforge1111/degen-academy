@@ -6,6 +6,7 @@
     isInsuranceOnCooldown, getInsuranceCooldownRemaining, getInsuranceTimeRemaining,
     totalYieldPerSecond, getTotalDeposited, setScreen
   } from '../../stores/gameStore.svelte';
+  import { playerPosition } from '../../stores/memeStore.svelte';
   import { GAME_CONSTANTS } from '../../../data/constants';
   import BottomBar from '../BottomBar.svelte';
   import PoolCard from '../PoolCard.svelte';
@@ -13,7 +14,8 @@
   const poolList = $derived(pools.value);
   const portfolioVal = $derived(portfolio.value);
   const totalInPools = $derived(getTotalDeposited());
-  const totalNetWorth = $derived(portfolioVal + totalInPools);
+  const memePosition = $derived(playerPosition.value);
+  const totalNetWorth = $derived(portfolioVal + totalInPools + memePosition);
   const quote = $derived(ralphQuote.value);
   const notification = $derived(ralphNotification.value);
   const itemsVal = $derived(items.value);
@@ -126,10 +128,10 @@
 
           <div style="width: 1px; height: 28px; background: rgba(255,255,255,0.15);"></div>
 
-          <!-- In Pools -->
+          <!-- In Pools + Trading -->
           <div style="display: flex; flex-direction: column; line-height: 1.2;">
-            <span style="font-size: 9px; color: rgba(255,255,255,0.5); text-transform: uppercase;">In Pools</span>
-            <span class="font-mono font-semibold" style="font-size: 13px; color: #a78bfa;">${totalInPools.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            <span style="font-size: 9px; color: rgba(255,255,255,0.5); text-transform: uppercase;">Pools + Trading</span>
+            <span class="font-mono font-semibold" style="font-size: 13px; color: #a78bfa;">${(totalInPools + memePosition).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
 
           <div style="width: 1px; height: 28px; background: rgba(255,255,255,0.15);"></div>

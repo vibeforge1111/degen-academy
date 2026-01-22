@@ -4,6 +4,24 @@
 
   const posts = $derived(socialPosts.value);
 
+  // Author type avatar colors
+  function getAvatarStyle(authorType: string): string {
+    switch (authorType) {
+      case 'kol': return 'linear-gradient(135deg, #8b5cf6, #6366f1)';
+      case 'whale': return 'linear-gradient(135deg, #0ea5e9, #06b6d4)';
+      case 'dev': return 'linear-gradient(135deg, #22c55e, #10b981)';
+      case 'celebrity': return 'linear-gradient(135deg, #f59e0b, #eab308)';
+      case 'exchange': return 'linear-gradient(135deg, #f97316, #ef4444)';
+      case 'news': return 'linear-gradient(135deg, #3b82f6, #1d4ed8)';
+      case 'fudder': return 'linear-gradient(135deg, #ef4444, #dc2626)';
+      case 'analyst': return 'linear-gradient(135deg, #14b8a6, #0d9488)';
+      case 'newbie': return 'linear-gradient(135deg, #a78bfa, #c084fc)';
+      case 'bot': return 'linear-gradient(135deg, #64748b, #475569)';
+      case 'scammer': return 'linear-gradient(135deg, #991b1b, #7f1d1d)';
+      default: return 'linear-gradient(135deg, rgba(139, 92, 246, 0.5), rgba(59, 130, 246, 0.5))';
+    }
+  }
+
   // Event type styling
   function getEventStyle(type: MemeEventType): { bg: string; border: string; icon: string } {
     switch (type) {
@@ -70,7 +88,7 @@
       >
         <!-- Author avatar and info -->
         <div class="post-author">
-          <span class="avatar">{post.author.avatar}</span>
+          <span class="avatar" style="background: {getAvatarStyle(post.author.type)}">{post.author.avatar}</span>
           <div class="author-info">
             <div class="author-name-row">
               <span class="author-name">{post.author.name}</span>
@@ -188,14 +206,16 @@
   }
 
   .avatar {
-    font-size: 24px;
-    width: 32px;
-    height: 32px;
+    font-size: 20px;
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.1);
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(59, 130, 246, 0.3));
     border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   }
 
   .author-info {

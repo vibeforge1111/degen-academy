@@ -8,7 +8,7 @@ import {
   EVENT_CONFIGS,
   type EventConfig
 } from '../../data/meme-events';
-import { portfolio } from './gameStore.svelte';
+import { portfolio, addToPortfolio, deductFromPortfolio } from './gameStore.svelte';
 
 // ============================================
 // GAME CONSTANTS
@@ -67,6 +67,7 @@ function createInitialGameState(): MemeGameState {
     token: createInitialToken(),
     posts: [],
     playerPosition: 0,
+    playerCostBasis: 0,
     playerEntryPrice: 0,
     playerPnL: 0,
     gamePhase: 'pregame',
@@ -182,20 +183,12 @@ function startIntervals() {
     checkForEvents();
   }, MEME_CONSTANTS.EVENT_CHECK_INTERVAL_MS) as unknown as number;
 
-  // Timer
+  // Timer - tracks how long you've been watching (no auto-end)
   timerInterval = setInterval(() => {
     store.game.timeRemaining--;
 
-    // Increase rug probability over time
+    // Increase rug probability over time - surprise rug!
     store.game.rugProbability += MEME_CONSTANTS.RUG_PROBABILITY_INCREASE;
-
-    if (store.game.timeRemaining <= 0) {
-      // Time's up - if player still has position, force exit
-      if (store.game.playerPosition > 0) {
-        sellAll();
-      }
-      endGame('exited');
-    }
   }, 1000) as unknown as number;
 }
 
@@ -264,7 +257,8 @@ function updatePlayerPnL() {
   }
 
   const currentValue = (store.game.playerPosition / store.game.playerEntryPrice) * store.game.token.currentPrice;
-  store.game.playerPnL = currentValue - store.game.playerPosition;
+  // Use cost basis for accurate P&L (accounts for slippage)
+  store.game.playerPnL = currentValue - store.game.playerCostBasis;
 }
 
 // ============================================
@@ -371,9 +365,11 @@ export function buyToken(amount: number) {
   const slippageAmount = amount * MEME_CONSTANTS.SLIPPAGE;
   const effectiveAmount = amount - slippageAmount;
 
-  // Deduct from main portfolio
-  // We need to import the gameStore's portfolio modification
-  // For now, we'll track it locally
+  // Deduct from main portfolio (cash)
+  if (!deductFromPortfolio(amount)) return;
+
+  // Track cost basis (actual cash spent)
+  store.game.playerCostBasis += amount;
 
   // Calculate average entry price
   if (store.game.playerPosition > 0) {
@@ -397,7 +393,11 @@ export function sellAll() {
   if (store.game.playerPosition <= 0) return;
 
   const exitValue = (store.game.playerPosition / store.game.playerEntryPrice) * store.game.token.currentPrice;
-  const profit = exitValue - store.game.playerPosition;
+  // Use cost basis for accurate profit (accounts for slippage)
+  const profit = exitValue - store.game.playerCostBasis;
+
+  // Add exit value back to main portfolio (cash)
+  addToPortfolio(exitValue);
 
   // Update stats
   if (profit > 0) {
@@ -411,6 +411,7 @@ export function sellAll() {
   // Reset position
   store.game.playerPnL = profit;
   store.game.playerPosition = 0;
+  store.game.playerCostBasis = 0;
   store.game.playerEntryPrice = 0;
 
   // Add post
@@ -433,10 +434,16 @@ export function sellPartial(percentage: number) {
 
   const sellAmount = store.game.playerPosition * (percentage / 100);
   const sellValue = (sellAmount / store.game.playerEntryPrice) * store.game.token.currentPrice;
-  const profit = sellValue - sellAmount;
+  // Use proportional cost basis for accurate profit
+  const proportionalCostBasis = store.game.playerCostBasis * (percentage / 100);
+  const profit = sellValue - proportionalCostBasis;
 
-  // Update position
+  // Add sell value back to main portfolio (cash)
+  addToPortfolio(sellValue);
+
+  // Update position and cost basis
   store.game.playerPosition -= sellAmount;
+  store.game.playerCostBasis -= proportionalCostBasis;
   updatePlayerPnL();
 
   // Update stats
@@ -460,11 +467,15 @@ function endGame(result: 'rugged' | 'mooned' | 'exited') {
 
   if (result === 'rugged') {
     if (store.game.playerPosition > 0) {
-      // Player got rugged with position
+      // Player got rugged with position - lost their cost basis
       store.stats.gotRugged++;
-      const loss = store.game.playerPosition * 0.95; // Lost 95%
+      const loss = store.game.playerCostBasis; // Lost everything they put in
       store.stats.totalLoss += loss;
       store.game.playerPnL = -loss;
+      // Reset position
+      store.game.playerPosition = 0;
+      store.game.playerCostBasis = 0;
+      store.game.playerEntryPrice = 0;
     } else {
       // Escaped the rug!
       store.stats.rugsEscaped++;
