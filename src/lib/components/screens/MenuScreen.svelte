@@ -51,7 +51,13 @@
         onclick={() => showHowToPlay = !showHowToPlay}
         class="how-to-play-btn font-chalk"
       >
-        <span>{showHowToPlay ? '✕ Close' : '? How to Play'}</span>
+        {#if showHowToPlay}
+          <span>Close</span>
+          <span class="btn-icon">✕</span>
+        {:else}
+          <span>How to Play</span>
+          <span class="btn-icon">?</span>
+        {/if}
       </button>
     </div>
 
@@ -99,21 +105,35 @@
           <div class="mechanic-item">
             <span class="mechanic-icon">🛡️</span>
             <div>
-              <strong>Audit ($500):</strong> Blocks one exploit attack
+              <strong>Audit (10% of pool):</strong> Protects one pool from rug/exploit
             </div>
           </div>
 
           <div class="mechanic-item">
             <span class="mechanic-icon">🏥</span>
             <div>
-              <strong>Insurance ($200):</strong> Reduces whale dump damage by 50%
+              <strong>Insurance (5% portfolio):</strong> 60s of 50% damage reduction
+            </div>
+          </div>
+
+          <div class="mechanic-item">
+            <span class="mechanic-icon">⚡</span>
+            <div>
+              <strong>Leverage (FREE):</strong> 2x yields AND 2x loss on one pool
+            </div>
+          </div>
+
+          <div class="mechanic-item">
+            <span class="mechanic-icon">🔒</span>
+            <div>
+              <strong>Hedge Mode:</strong> Toggle immunity to rugs, but -50% yields & drains 2%/s
             </div>
           </div>
 
           <div class="mechanic-item">
             <span class="mechanic-icon">💡</span>
             <div>
-              <strong>Strategy:</strong> Diversify! Don't put all eggs in one degen basket
+              <strong>Diversify:</strong> 3+ pools = bonus yields, 50%+ in one = extra rug risk
             </div>
           </div>
         </div>
@@ -245,20 +265,39 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 10px 20px;
+    gap: 10px;
+    padding: 12px 20px;
     font-size: 14px;
-    color: white;
-    background: rgba(139, 92, 246, 0.3);
-    border: 2px solid rgba(139, 92, 246, 0.5);
-    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.9);
+    background: #3d3d4a;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
     cursor: pointer;
     transition: all 0.15s ease;
   }
 
   .how-to-play-btn:hover {
-    background: rgba(139, 92, 246, 0.5);
-    border-color: rgba(139, 92, 246, 0.8);
+    background: #4a4a58;
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+  }
+
+  .how-to-play-btn:active {
+    transform: translateY(0);
+  }
+
+  .btn-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    font-size: 13px;
+    font-weight: 600;
+    background: rgba(139, 92, 246, 0.3);
+    border: 1px solid rgba(139, 92, 246, 0.5);
+    border-radius: 6px;
+    color: #a78bfa;
   }
 
   /* How to Play panel */
