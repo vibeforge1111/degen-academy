@@ -86,8 +86,11 @@
   }
 </script>
 
-<div class="min-h-screen min-h-dvh flex flex-col relative"
-     style="background: #F5F2EB;">
+<div class="min-h-screen min-h-dvh flex flex-col bg-cover bg-center bg-fixed relative"
+     style="background-image: url('/ralph-lab-bg.png');">
+
+  <!-- Dark overlay -->
+  <div class="absolute inset-0 bg-slate-950/85"></div>
 
   <!-- Main Content -->
   <div class="relative z-10 flex-1 flex flex-col h-screen h-dvh overflow-hidden">
