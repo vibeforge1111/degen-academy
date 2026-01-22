@@ -64,12 +64,12 @@ export class MenuScene extends Phaser.Scene {
       });
     });
 
-    // Pulsing animation on play button
+    // Subtle pulsing animation on play button (reduced)
     this.tweens.add({
       targets: playBtn,
-      scaleX: 1.05,
-      scaleY: 1.05,
-      duration: 800,
+      scaleX: 1.02,
+      scaleY: 1.02,
+      duration: 1200,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
@@ -77,11 +77,11 @@ export class MenuScene extends Phaser.Scene {
 
     currentY += 100;
 
-    // Info cards - positioned lower, closer to middle of remaining space
-    const cardY = currentY + 100;
-    const cardSpacing = 220;
-    this.createInfoCard(width / 2 - cardSpacing, cardY, 'icon-start', 'Start: $10,000', 'Your initial funding');
-    this.createInfoCard(width / 2, cardY, 'icon-goal', 'Goal: $1,000,000', 'Reach to graduate');
+    // Info cards - positioned lower, swapped left and middle icons
+    const cardY = currentY + 140;
+    const cardSpacing = 240;
+    this.createInfoCard(width / 2 - cardSpacing, cardY, 'icon-goal', 'Goal: $1,000,000', 'Reach to graduate');
+    this.createInfoCard(width / 2, cardY, 'icon-start', 'Start: $10,000', 'Your initial funding');
     this.createInfoCard(width / 2 + cardSpacing, cardY, 'icon-halving', 'Halving: 5 min', 'Yields cut 50%');
 
     // === BOTTOM SECTION ===
@@ -190,26 +190,35 @@ export class MenuScene extends Phaser.Scene {
     const px = Math.round(x);
     const py = Math.round(y);
 
+    // Card background
     const card = this.add.graphics();
     card.fillStyle(0x1a1a2e, 0.9);
-    card.fillRoundedRect(px - 95, py - 70, 190, 140, 12);
-    card.lineStyle(1, 0x3d3d5c, 1);
-    card.strokeRoundedRect(px - 95, py - 70, 190, 140, 12);
+    card.fillRoundedRect(px - 105, py - 85, 210, 170, 14);
 
-    // Use image sprite - much bigger icons
-    const icon = this.add.image(px, py - 25, iconKey);
+    // Neon green border glow effect
+    card.lineStyle(2, 0x22c55e, 0.8);
+    card.strokeRoundedRect(px - 105, py - 85, 210, 170, 14);
+
+    // Outer glow
+    card.lineStyle(4, 0x22c55e, 0.2);
+    card.strokeRoundedRect(px - 107, py - 87, 214, 174, 16);
+
+    // Use image sprite - bigger icons with smooth scaling
+    const icon = this.add.image(px, py - 30, iconKey);
     icon.setOrigin(0.5);
-    icon.setDisplaySize(72, 72);
+    icon.setDisplaySize(88, 88);
+    // Enable linear filtering for smooth scaling
+    icon.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
 
-    this.add.text(px, py + 30, title, {
+    this.add.text(px, py + 38, title, {
       fontFamily: 'JetBrains Mono, monospace',
-      fontSize: '14px',
+      fontSize: '15px',
       color: '#FFFFFF',
       fontStyle: 'bold',
     }).setOrigin(0.5);
-    this.add.text(px, py + 50, desc, {
+    this.add.text(px, py + 60, desc, {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '11px',
+      fontSize: '12px',
       color: '#71717A',
     }).setOrigin(0.5);
   }
