@@ -21,7 +21,7 @@ const MEME_CONSTANTS = {
   MOON_THRESHOLD: 10,              // 10x = moon
   MIN_BUY_AMOUNT: 100,             // Minimum buy in $
   SLIPPAGE: 0.02,                  // 2% slippage on buys
-  NUM_TOKENS: 7,                   // Number of tokens to generate
+  NUM_TOKENS: 5,                   // Number of tokens to generate
 };
 
 // ============================================
@@ -104,9 +104,9 @@ const TIER_CONFIGS: Record<MarketCapTier, TierConfig> = {
   },
 };
 
-// Distribution of tiers for the 7 tokens
-// 2 micro, 2 small, 2 mid, 1 large (always have one "safer" option)
-const TIER_DISTRIBUTION: MarketCapTier[] = ['micro', 'micro', 'small', 'small', 'mid', 'mid', 'large'];
+// Distribution of tiers for the 5 tokens
+// 1 micro, 1 small, 1 mid, 1 large, 1 random - good variety
+const TIER_DISTRIBUTION: MarketCapTier[] = ['micro', 'small', 'mid', 'large', 'small'];
 
 // ============================================
 // STATE

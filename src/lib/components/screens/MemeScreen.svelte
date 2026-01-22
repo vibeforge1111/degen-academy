@@ -171,12 +171,15 @@
             class="token-tab"
             class:active={selectedIdx === i}
             class:holding={tradingIdx === i}
+            style="border-left: 3px solid {tierConfig.color}"
             onclick={() => selectToken(i)}
           >
-            <span class="tier-badge" style="background: {tierConfig.color}">{tierConfig.label}</span>
             <span class="token-emoji">{t.emoji}</span>
             <div class="token-info">
-              <span class="token-ticker">{t.ticker}</span>
+              <div class="ticker-row">
+                <span class="token-ticker">{t.ticker}</span>
+                <span class="tier-label" style="color: {tierConfig.color}">{tierConfig.label}</span>
+              </div>
               <span class="token-change" style="color: {tokenColor}">
                 {tokenChange >= 0 ? '+' : ''}{tokenChange.toFixed(0)}%
               </span>
@@ -242,57 +245,60 @@
           </div>
         </div>
 
-        <!-- Right: Feed + Trading -->
+        <!-- Right: Trading Controls + Feed -->
         <div class="trading-area">
-          <!-- Position Info (if holding) -->
-          {#if isHoldingThis}
-            <div class="position-card">
-              <div class="position-header">
-                <span>Your Position</span>
-                <span class="position-token">{token?.ticker}</span>
-              </div>
-              <div class="position-values">
-                <div class="position-item">
-                  <span class="pos-label">Value</span>
-                  <span class="pos-value">{formatMoney(position)}</span>
+          <!-- Trading Controls (fixed at top, aligns with token-header) -->
+          <div class="trading-controls">
+            <!-- Position Info (if holding) -->
+            {#if isHoldingThis}
+              <div class="position-card">
+                <div class="position-header">
+                  <span>Your Position</span>
+                  <span class="position-token">{token?.ticker}</span>
                 </div>
-                <div class="position-item">
-                  <span class="pos-label">P&L</span>
-                  <span class="pos-value" style="color: {pnlColor}">
-                    {pnl >= 0 ? '+' : ''}{formatMoney(pnl)}
-                  </span>
+                <div class="position-values">
+                  <div class="position-item">
+                    <span class="pos-label">Value</span>
+                    <span class="pos-value">{formatMoney(position)}</span>
+                  </div>
+                  <div class="position-item">
+                    <span class="pos-label">P&L</span>
+                    <span class="pos-value" style="color: {pnlColor}">
+                      {pnl >= 0 ? '+' : ''}{formatMoney(pnl)}
+                    </span>
+                  </div>
+                </div>
+                <button class="sell-btn" onclick={() => sellAll()}>
+                  SELL ALL
+                </button>
+              </div>
+            {:else if tradingIdx !== null && tradingIdx !== selectedIdx}
+              <div class="position-card warning">
+                <span class="warning-text">You're holding {tokens[tradingIdx]?.ticker}</span>
+                <span class="warning-sub">Sell before buying another token</span>
+              </div>
+            {/if}
+
+            <!-- Buy Buttons -->
+            {#if canBuyThisToken}
+              <div class="buy-section">
+                <span class="buy-label">Quick Buy</span>
+                <div class="buy-buttons">
+                  {#each buyAmounts as amount}
+                    <button
+                      class="buy-btn"
+                      onclick={() => buyToken(amount)}
+                      disabled={cashBalance < amount}
+                    >
+                      ${amount >= 1000 ? `${amount/1000}K` : amount}
+                    </button>
+                  {/each}
                 </div>
               </div>
-              <button class="sell-btn" onclick={() => sellAll()}>
-                SELL ALL
-              </button>
-            </div>
-          {:else if tradingIdx !== null && tradingIdx !== selectedIdx}
-            <div class="position-card warning">
-              <span class="warning-text">You're holding {tokens[tradingIdx]?.ticker}</span>
-              <span class="warning-sub">Sell before buying another token</span>
-            </div>
-          {/if}
+            {/if}
+          </div>
 
-          <!-- Buy Buttons -->
-          {#if canBuyThisToken}
-            <div class="buy-section">
-              <span class="buy-label">Quick Buy</span>
-              <div class="buy-buttons">
-                {#each buyAmounts as amount}
-                  <button
-                    class="buy-btn"
-                    onclick={() => buyToken(amount)}
-                    disabled={cashBalance < amount}
-                  >
-                    ${amount >= 1000 ? `${amount/1000}K` : amount}
-                  </button>
-                {/each}
-              </div>
-            </div>
-          {/if}
-
-          <!-- Live Feed -->
+          <!-- Live Feed (fills remaining space) -->
           <div class="feed-area">
             <SocialFeed />
           </div>
@@ -352,26 +358,26 @@
   /* Token Tabs Row */
   .token-tabs-row {
     display: flex;
-    gap: 8px;
-    padding: 10px 14px;
+    gap: 6px;
+    padding: 8px 12px;
     background: #2d2d3a;
     border-radius: 10px;
     border: 1px solid rgba(255,255,255,0.08);
-    overflow-x: auto;
   }
 
   .token-tab {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
+    gap: 6px;
+    padding: 6px 10px 6px 8px;
     background: rgba(255,255,255,0.03);
     border: 1px solid transparent;
-    border-radius: 8px;
+    border-radius: 6px;
     cursor: pointer;
     transition: all 0.15s ease;
     position: relative;
-    min-width: fit-content;
+    flex: 1;
+    min-width: 0;
   }
 
   .token-tab:hover {
@@ -380,12 +386,11 @@
 
   .token-tab.active {
     background: rgba(255,255,255,0.1);
-    border-color: rgba(255,255,255,0.2);
+    border-color: rgba(255,255,255,0.15);
   }
 
   .token-tab.holding {
-    border-color: rgba(167, 139, 250, 0.5);
-    box-shadow: 0 0 8px rgba(167, 139, 250, 0.2);
+    box-shadow: 0 0 8px rgba(167, 139, 250, 0.3);
   }
 
   .token-emoji {
@@ -396,6 +401,13 @@
     display: flex;
     flex-direction: column;
     line-height: 1.2;
+    min-width: 0;
+  }
+
+  .ticker-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
   }
 
   .token-ticker {
@@ -404,14 +416,21 @@
     color: white;
   }
 
+  .tier-label {
+    font-size: 8px;
+    font-weight: 700;
+    opacity: 0.9;
+  }
+
   .token-change {
     font-size: 10px;
     font-family: 'JetBrains Mono', monospace;
   }
 
   .mini-chart {
-    width: 40px;
+    width: 36px;
     height: 14px;
+    flex-shrink: 0;
   }
 
   .holding-badge {
@@ -426,15 +445,6 @@
     border-radius: 3px;
   }
 
-  .tier-badge {
-    font-size: 7px;
-    font-weight: 700;
-    padding: 2px 4px;
-    color: white;
-    border-radius: 3px;
-    text-shadow: 0 1px 1px rgba(0,0,0,0.3);
-  }
-
   .header-tier-badge {
     font-size: 9px;
     font-weight: 700;
@@ -444,18 +454,20 @@
     text-shadow: 0 1px 1px rgba(0,0,0,0.3);
   }
 
-  /* Trading Layout */
+  /* Trading Layout - fixed height structure */
   .trading-layout {
     display: grid;
     grid-template-columns: 1fr 300px;
     gap: 20px;
     height: 100%;
+    min-height: 0;
   }
 
   @media (max-width: 1024px) {
     .trading-layout {
       grid-template-columns: 1fr;
-      grid-template-rows: 1fr auto;
+      grid-template-rows: auto 1fr;
+      overflow-y: auto;
     }
   }
 
@@ -463,7 +475,9 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+    height: 100%;
     min-height: 0;
+    overflow: hidden;
   }
 
   .token-header {
@@ -545,7 +559,8 @@
 
   .chart-container {
     flex: 1;
-    min-height: 250px;
+    min-height: 0;
+    overflow: hidden;
   }
 
   /* Trading Area - fills grid cell height */
@@ -556,6 +571,14 @@
     min-height: 0;
     height: 100%;
     overflow: hidden;
+  }
+
+  /* Top section aligns with token-header height */
+  .trading-controls {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
   }
 
   .position-card {
