@@ -90,6 +90,8 @@
           <h1 class="text-lg font-chalk text-white">Ralph's Degen Academy</h1>
         </div>
 
+        <!-- Right side: Mode Switcher + Wallet -->
+        <div style="display: flex; align-items: center; gap: 16px;">
         <!-- Mode Switcher -->
         <div class="mode-switcher">
           <button class="mode-tab" onclick={() => setScreen('game')}>
@@ -140,6 +142,7 @@
             <span style="font-size: 9px; color: rgba(255,255,255,0.5); text-transform: uppercase;">Cash</span>
             <span class="font-mono font-semibold" style="font-size: 13px; color: #4ade80;">${cashBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
+        </div>
         </div>
       </div>
 
@@ -336,13 +339,13 @@
 
   .mode-tab.active {
     color: white;
-    background: rgba(139, 92, 246, 0.15);
-    border-color: rgba(139, 92, 246, 0.4);
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.25);
   }
 
   .mode-tab.active svg {
     opacity: 1;
-    color: #a78bfa;
+    color: white;
   }
 
   /* Ralph/Token panel (same as GameScreen) */
