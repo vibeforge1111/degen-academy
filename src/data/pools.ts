@@ -3,12 +3,12 @@
 import type { PoolConfig, Pool } from '../types/game.ts';
 
 export const POOL_CONFIGS: PoolConfig[] = [
-  { id: 'stable', name: 'StableYield', emoji: '🏦', apy: 8, riskLevel: 'safe' },
-  { id: 'blue', name: 'BlueChip', emoji: '💎', apy: 25, riskLevel: 'safe' },
-  { id: 'growth', name: 'GrowthFi', emoji: '📈', apy: 69, riskLevel: 'medium' },
-  { id: 'yield', name: 'YieldMax', emoji: '💰', apy: 150, riskLevel: 'medium' },
-  { id: 'degen', name: 'DegenPool', emoji: '🎰', apy: 300, riskLevel: 'degen' },
-  { id: 'moon', name: 'MoonShot', emoji: '🚀', apy: 420, riskLevel: 'degen' },
+  { id: 'stable', name: 'StableYield', emoji: '🏦', logo: '/pool-stable.png', apy: 8, riskLevel: 'safe' },
+  { id: 'blue', name: 'BlueChip', emoji: '💎', logo: '/pool-blue.png', apy: 25, riskLevel: 'safe' },
+  { id: 'growth', name: 'GrowthFi', emoji: '📈', logo: '/pool-growth.png', apy: 69, riskLevel: 'medium' },
+  { id: 'yield', name: 'YieldMax', emoji: '💰', logo: '/pool-yield.png', apy: 150, riskLevel: 'medium' },
+  { id: 'degen', name: 'DegenPool', emoji: '🎰', logo: '/pool-degen.png', apy: 300, riskLevel: 'degen' },
+  { id: 'moon', name: 'MoonShot', emoji: '🚀', logo: '/pool-moon.png', apy: 420, riskLevel: 'degen' },
 ];
 
 export function createInitialPools(): Pool[] {

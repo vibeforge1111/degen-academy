@@ -7,6 +7,7 @@ export interface Pool {
   id: string;
   name: string;
   emoji: string;
+  logo: string;
   apy: number;
   riskLevel: RiskLevel;
   deposited: number;
@@ -89,6 +90,7 @@ export interface PoolConfig {
   id: string;
   name: string;
   emoji: string;
+  logo: string;
   apy: number;
   riskLevel: RiskLevel;
 }

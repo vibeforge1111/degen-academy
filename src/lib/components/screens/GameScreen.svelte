@@ -4,7 +4,7 @@
     buyInsurance, toggleHedge, halvingMultiplier, halvingTimeRemaining, gameState,
     getInsuranceCost, getHedgeCostPerTick, getDiversificationBonus, getActivePoolCount,
     isInsuranceOnCooldown, getInsuranceCooldownRemaining, getInsuranceTimeRemaining,
-    totalYieldPerSecond
+    totalYieldPerSecond, getTotalDeposited, setScreen
   } from '../../stores/gameStore.svelte';
   import { GAME_CONSTANTS } from '../../../data/constants';
   import BottomBar from '../BottomBar.svelte';
@@ -12,6 +12,8 @@
 
   const poolList = $derived(pools.value);
   const portfolioVal = $derived(portfolio.value);
+  const totalInPools = $derived(getTotalDeposited());
+  const totalNetWorth = $derived(portfolioVal + totalInPools);
   const quote = $derived(ralphQuote.value);
   const notification = $derived(ralphNotification.value);
   const itemsVal = $derived(items.value);
@@ -56,6 +58,18 @@
     return `$${amount.toFixed(0)}`;
   }
 
+  // Format yield with precision - show exact earnings
+  function formatYield(amount: number): string {
+    if (amount >= 1_000_000) {
+      return `$${(amount / 1_000_000).toFixed(2)}M`;
+    } else if (amount >= 1_000) {
+      return `$${(amount / 1_000).toFixed(2)}K`;
+    } else if (amount >= 1) {
+      return `$${amount.toFixed(2)}`;
+    }
+    return `$${amount.toFixed(2)}`;
+  }
+
   function formatTime(ms: number): string {
     const totalSeconds = Math.floor(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -83,14 +97,48 @@
           <h1 class="text-lg font-chalk text-white">Ralph's Degen Academy</h1>
         </div>
 
-        <!-- Wallet (display only, not clickable) -->
-        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: #2d2d3a; border-radius: 8px;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color: #fff; opacity: 0.9;">
-            <path d="M3 7c0-1.1.9-2 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>
-            <path d="M16 12a1 1 0 1 0 2 0 1 1 0 0 0-2 0"/>
-            <path d="M3 7l4-3h10l4 3"/>
-          </svg>
-          <span class="font-mono font-bold" style="font-size: 15px; color: #fff;">{formatMoney(portfolioVal)}</span>
+        <!-- Mode Switcher -->
+        <div class="mode-switcher">
+          <button class="mode-tab active">
+            <span>📊</span>
+            <span>Yield Farms</span>
+          </button>
+          <button class="mode-tab" onclick={() => setScreen('meme')}>
+            <span>📈</span>
+            <span>Meme Coins</span>
+          </button>
+        </div>
+
+        <!-- Wallet with breakdown -->
+        <div style="display: flex; align-items: center; gap: 16px; padding: 10px 20px; background: #2d2d3a; border-radius: 8px;">
+          <!-- Total Portfolio -->
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color: #fff; opacity: 0.9;">
+              <path d="M3 7c0-1.1.9-2 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>
+              <path d="M16 12a1 1 0 1 0 2 0 1 1 0 0 0-2 0"/>
+              <path d="M3 7l4-3h10l4 3"/>
+            </svg>
+            <div style="display: flex; flex-direction: column; line-height: 1.2;">
+              <span style="font-size: 9px; color: rgba(255,255,255,0.5); text-transform: uppercase;">Total</span>
+              <span class="font-mono font-bold" style="font-size: 14px; color: #fff;">${totalNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
+          </div>
+
+          <div style="width: 1px; height: 28px; background: rgba(255,255,255,0.15);"></div>
+
+          <!-- In Pools -->
+          <div style="display: flex; flex-direction: column; line-height: 1.2;">
+            <span style="font-size: 9px; color: rgba(255,255,255,0.5); text-transform: uppercase;">In Pools</span>
+            <span class="font-mono font-semibold" style="font-size: 13px; color: #a78bfa;">${totalInPools.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          </div>
+
+          <div style="width: 1px; height: 28px; background: rgba(255,255,255,0.15);"></div>
+
+          <!-- Cash Available -->
+          <div style="display: flex; flex-direction: column; line-height: 1.2;">
+            <span style="font-size: 9px; color: rgba(255,255,255,0.5); text-transform: uppercase;">Cash</span>
+            <span class="font-mono font-semibold" style="font-size: 13px; color: #4ade80;">${portfolioVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          </div>
         </div>
       </div>
 
@@ -184,7 +232,7 @@
           <div style="display: flex; align-items: center; gap: 6px;">
             <span style="font-size: 10px; color: rgba(255,255,255,0.4);">Yield</span>
             <span class="font-mono font-bold" style="font-size: 13px; color: #4ade80;">
-              +{formatMoney(yieldPerSec)}/s
+              +{formatYield(yieldPerSec)}/s
             </span>
           </div>
 
@@ -283,6 +331,41 @@
 </div>
 
 <style>
+  /* Mode Switcher */
+  .mode-switcher {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    background: #1e1e2e;
+    border-radius: 10px;
+  }
+
+  .mode-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.5);
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .mode-tab:hover:not(.active) {
+    color: rgba(255,255,255,0.8);
+    background: rgba(255,255,255,0.05);
+  }
+
+  .mode-tab.active {
+    color: white;
+    background: #8b5cf6;
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+  }
+
   /* Ralph panel */
   .ralph-panel {
     padding: 10px 14px;

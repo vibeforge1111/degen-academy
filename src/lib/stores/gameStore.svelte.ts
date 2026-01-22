@@ -8,7 +8,7 @@ import { saveManager } from '../../systems/SaveManager';
 import type { GameState, Pool, EventType, GameEvent } from '../../types/game';
 
 // Screen types
-export type Screen = 'menu' | 'game' | 'death' | 'win';
+export type Screen = 'menu' | 'game' | 'meme' | 'death' | 'win';
 
 // Ralph notification - replaces toasts, shows in Ralph section
 type RalphNotification = {
@@ -341,13 +341,15 @@ function tickYields() {
       yps *= (1 - GAME_CONSTANTS.HEDGE_YIELD_REDUCTION);
     }
 
+    // Add yields directly to pool position (compounding)
+    pool.deposited += yps;
     totalYield += yps;
   }
 
-  store.game.portfolio += totalYield;
-
-  if (store.game.portfolio > store.game.stats.highestPortfolio) {
-    store.game.stats.highestPortfolio = store.game.portfolio;
+  // Track highest portfolio (total net worth = cash + pools)
+  const totalNetWorth = store.game.portfolio + getTotalDeposited();
+  if (totalNetWorth > store.game.stats.highestPortfolio) {
+    store.game.stats.highestPortfolio = totalNetWorth;
   }
 }
 
@@ -410,7 +412,10 @@ function checkTemporaryEffects() {
 }
 
 function checkEndConditions() {
-  if (store.game.portfolio >= GAME_CONSTANTS.WIN_PORTFOLIO) {
+  // Total net worth = cash + what's in pools
+  const totalNetWorth = store.game.portfolio + getTotalDeposited();
+
+  if (totalNetWorth >= GAME_CONSTANTS.WIN_PORTFOLIO) {
     store.game.isVictory = true;
 
     // Check if won with leverage for stats
@@ -424,7 +429,7 @@ function checkEndConditions() {
     store.currentScreen = 'win';
   }
 
-  if (store.game.portfolio <= 0) {
+  if (totalNetWorth <= 0) {
     store.game.isGameOver = true;
     stopIntervals();
     saveManager.recordGameEnd(store.game.stats, false, store.game.currentRun.elapsed);

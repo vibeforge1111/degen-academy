@@ -98,8 +98,8 @@
   <div class="flex items-center justify-between" style="margin-bottom: 16px;">
     <!-- Token Info -->
     <div class="flex items-center" style="gap: 12px;">
-      <div class="rounded-lg flex items-center justify-center" style="width: 40px; height: 40px; font-size: 20px; background: #383848;">
-        {pool.emoji}
+      <div class="rounded-lg flex items-center justify-center overflow-hidden" style="width: 40px; height: 40px; background: #383848;">
+        <img src={pool.logo} alt={pool.name} class="w-full h-full object-cover" />
       </div>
       <div>
         <div class="flex items-center" style="gap: 6px;">

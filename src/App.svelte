@@ -5,6 +5,7 @@
   import GameScreen from './lib/components/screens/GameScreen.svelte';
   import DeathScreen from './lib/components/screens/DeathScreen.svelte';
   import WinScreen from './lib/components/screens/WinScreen.svelte';
+  import MemeScreen from './lib/components/screens/MemeScreen.svelte';
 </script>
 
 <main class="min-h-screen min-h-dvh bg-[var(--color-bg-dark)]">
@@ -12,6 +13,8 @@
     <MenuScreen />
   {:else if currentScreen.value === 'game'}
     <GameScreen />
+  {:else if currentScreen.value === 'meme'}
+    <MemeScreen />
   {:else if currentScreen.value === 'death'}
     <DeathScreen />
   {:else if currentScreen.value === 'win'}
