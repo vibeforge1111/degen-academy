@@ -187,21 +187,21 @@ export class MenuScene extends Phaser.Scene {
   private createInfoCard(x: number, y: number, iconKey: string, title: string, desc: string): void {
     const card = this.add.graphics();
     card.fillStyle(0x1a1a2e, 0.9);
-    card.fillRoundedRect(x - 80, y - 40, 160, 80, 10);
+    card.fillRoundedRect(x - 85, y - 50, 170, 100, 10);
     card.lineStyle(1, 0x3d3d5c, 1);
-    card.strokeRoundedRect(x - 80, y - 40, 160, 80, 10);
+    card.strokeRoundedRect(x - 85, y - 50, 170, 100, 10);
 
     // Use image sprite instead of emoji text
-    const icon = this.add.image(x, y - 15, iconKey);
+    const icon = this.add.image(x, y - 18, iconKey);
     icon.setOrigin(0.5);
-    icon.setDisplaySize(32, 32);
-    this.add.text(x, y + 10, title, {
+    icon.setDisplaySize(48, 48);
+    this.add.text(x, y + 18, title, {
       fontFamily: 'JetBrains Mono, monospace',
       fontSize: '14px',
       color: '#FFFFFF',
       fontStyle: 'bold',
     }).setOrigin(0.5);
-    this.add.text(x, y + 28, desc, {
+    this.add.text(x, y + 36, desc, {
       fontFamily: 'Inter, sans-serif',
       fontSize: '11px',
       color: '#71717A',
