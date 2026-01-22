@@ -142,7 +142,9 @@ export function totalYieldPerSecond(): number {
   let total = 0;
   for (const pool of store.game.pools) {
     if (pool.isRugged || pool.deposited <= 0) continue;
+    // Base yield per second (annual rate / seconds in year) × speed multiplier
     let yps = pool.deposited * (pool.apy / 100) / 365 / 24 / 60 / 60;
+    yps *= GAME_CONSTANTS.YIELD_SPEED_MULTIPLIER; // Speed up for gameplay!
     yps *= store.game.halvingMultiplier;
     if (pool.isPumping) yps *= GAME_CONSTANTS.PUMP_MULTIPLIER;
     if (store.game.whaleEndTime && Date.now() < store.game.whaleEndTime) {
@@ -222,7 +224,9 @@ function tickYields() {
   for (const pool of store.game.pools) {
     if (pool.isRugged || pool.deposited <= 0) continue;
 
+    // Base yield per second (annual rate / seconds in year) × speed multiplier
     let yps = pool.deposited * (pool.apy / 100) / 365 / 24 / 60 / 60;
+    yps *= GAME_CONSTANTS.YIELD_SPEED_MULTIPLIER; // Speed up for gameplay!
     yps *= store.game.halvingMultiplier;
 
     if (store.game.whaleEndTime && Date.now() < store.game.whaleEndTime) {

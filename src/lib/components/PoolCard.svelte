@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { deposit, withdrawAll, gasMultiplier, portfolio } from '../stores/gameStore.svelte';
+  import { deposit, withdrawAll, gasMultiplier, portfolio, halvingMultiplier, gameState } from '../stores/gameStore.svelte';
+  import { GAME_CONSTANTS } from '../../data/constants';
   import type { Pool } from '../../types/game';
 
   interface Props {
@@ -10,6 +11,8 @@
 
   const gasMult = $derived(gasMultiplier.value);
   const portfolioVal = $derived(portfolio.value);
+  const halvingMult = $derived(halvingMultiplier.value);
+  const game = $derived(gameState.value);
 
   const depositAmount = 1000;
   const depositCost = $derived(depositAmount * gasMult);
@@ -26,10 +29,33 @@
 
   const tvl = $derived(Math.floor(1000000 / (pool.apy / 100 + 1)));
 
+  // Calculate yield per second for this pool
+  const yieldPerSecond = $derived(() => {
+    if (pool.isRugged || pool.deposited <= 0) return 0;
+    let yps = pool.deposited * (pool.apy / 100) / 365 / 24 / 60 / 60;
+    yps *= GAME_CONSTANTS.YIELD_SPEED_MULTIPLIER;
+    yps *= halvingMult;
+    if (pool.isPumping) yps *= GAME_CONSTANTS.PUMP_MULTIPLIER;
+    if (game.whaleEndTime && Date.now() < game.whaleEndTime) {
+      const reduction = game.items.insurance > 0
+        ? GAME_CONSTANTS.WHALE_YIELD_REDUCTION * GAME_CONSTANTS.INSURANCE_DAMAGE_REDUCTION
+        : GAME_CONSTANTS.WHALE_YIELD_REDUCTION;
+      yps *= (1 - reduction);
+    }
+    return yps;
+  });
+
   function formatTVL(amount: number): string {
     if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(2)}M`;
     if (amount >= 1_000) return `$${(amount / 1_000).toFixed(0)}K`;
     return `$${amount}`;
+  }
+
+  function formatYieldPerSec(yps: number): string {
+    if (yps >= 1000) return `+$${(yps / 1000).toFixed(1)}K/s`;
+    if (yps >= 1) return `+$${yps.toFixed(0)}/s`;
+    if (yps > 0) return `+$${yps.toFixed(2)}/s`;
+    return '$0/s';
   }
 </script>
 
@@ -80,12 +106,20 @@
 
   <!-- Your Position Box -->
   <div class="rounded-lg" style="padding: 12px 14px; margin-bottom: 16px; background: #252532;">
-    <div class="flex items-center justify-between">
+    <div class="flex items-center justify-between" style="margin-bottom: 4px;">
       <span class="text-white/40" style="font-size: 12px;">Your Position</span>
       <span class="font-mono text-white font-semibold" style="font-size: 14px;">
         ${pool.deposited.toLocaleString(undefined, { maximumFractionDigits: 0 })}
       </span>
     </div>
+    {#if pool.deposited > 0 && !pool.isRugged}
+      <div class="flex items-center justify-between">
+        <span class="text-white/30" style="font-size: 10px;">Earning</span>
+        <span class="font-mono text-emerald-400 font-medium" style="font-size: 12px;">
+          {formatYieldPerSec(yieldPerSecond())}
+        </span>
+      </div>
+    {/if}
   </div>
 
   <!-- Action Buttons -->

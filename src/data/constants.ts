@@ -5,6 +5,11 @@ export const GAME_CONSTANTS = {
   STARTING_PORTFOLIO: 10_000,
   WIN_PORTFOLIO: 1_000_000,
 
+  // Yield speed multiplier - compresses a year into ~10 minutes of gameplay
+  // 1000x means 420% APY = 420% per ~8.7 hours of real time
+  // This makes yields visible and the game playable
+  YIELD_SPEED_MULTIPLIER: 1000,
+
   // Halving
   HALVING_INTERVAL_MS: 5 * 60 * 1000, // 5 minutes
 
