@@ -9,22 +9,23 @@ import { WinScene } from './scenes/WinScene.ts';
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
-  width: 1280,
-  height: 720,
+  // Base resolution - will be overridden by RESIZE mode
+  width: window.innerWidth,
+  height: window.innerHeight,
   parent: 'game-container',
   backgroundColor: '#0F0F1A',
   scene: [BootScene, MenuScene, GameScene, DeathScene, WinScene],
   scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
-    min: {
-      width: 800,
-      height: 450,
-    },
-    max: {
-      width: 1920,
-      height: 1080,
-    },
+    // RESIZE mode: Canvas fills parent container, no letterboxing
+    // The game resolution dynamically matches the viewport
+    mode: Phaser.Scale.RESIZE,
+    // No autoCenter needed with RESIZE - canvas fills parent
+    autoCenter: Phaser.Scale.NO_CENTER,
+    // Parent container
+    parent: 'game-container',
+    // Ensure canvas stretches to fill
+    width: '100%',
+    height: '100%',
   },
   render: {
     pixelArt: false,
