@@ -18,6 +18,22 @@
   }
 
   const isNewRecord = $derived(game.stats.fastestWin === game.currentRun.elapsed);
+
+  function shareToTwitter() {
+    const recordText = isNewRecord ? '🏆 NEW RECORD!\n\n' : '';
+    const text = `🎓 I GRADUATED from Ralph's Degen Academy!
+
+${recordText}⏱️ Time: ${formatTime(game.currentRun.elapsed)}
+💰 Final: $${game.portfolio.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+🚨 Rugs survived: ${game.stats.rugsEaten}
+
+I turned $10K into $1M without getting rugged!
+
+🎮 Can you do it?`;
+    const url = 'https://degen-academy.vercel.app';
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+    window.open(twitterUrl, '_blank', 'noopener,noreferrer');
+  }
 </script>
 
 <div class="min-h-screen min-h-dvh flex flex-col bg-cover bg-center relative"
@@ -143,22 +159,42 @@
       </div>
     </div>
 
-    <!-- Play Again Button -->
-    <button
-      onclick={() => startGame()}
-      class="relative overflow-hidden bg-gradient-to-r from-purple-600 via-fuchsia-600 to-cyan-600
-             hover:from-purple-500 hover:via-fuchsia-500 hover:to-cyan-500
-             active:from-purple-700 active:via-fuchsia-700 active:to-cyan-700
-             text-white font-display font-bold text-lg
-             px-12 py-4 rounded-xl
-             shadow-xl shadow-purple-500/40 hover:shadow-purple-500/60
-             transition-all duration-200 transform hover:scale-105 active:scale-100"
-    >
-      <span class="relative z-10 flex items-center gap-2">
-        <span>🚀</span>
-        PLAY AGAIN
-      </span>
-    </button>
+    <!-- Action Buttons -->
+    <div class="flex gap-4">
+      <button
+        onclick={() => startGame()}
+        class="relative overflow-hidden bg-gradient-to-r from-purple-600 via-fuchsia-600 to-cyan-600
+               hover:from-purple-500 hover:via-fuchsia-500 hover:to-cyan-500
+               active:from-purple-700 active:via-fuchsia-700 active:to-cyan-700
+               text-white font-display font-bold text-lg
+               px-8 py-4 rounded-xl
+               shadow-xl shadow-purple-500/40 hover:shadow-purple-500/60
+               transition-all duration-200 transform hover:scale-105 active:scale-100"
+      >
+        <span class="relative z-10 flex items-center gap-2">
+          <span>🚀</span>
+          PLAY AGAIN
+        </span>
+      </button>
+
+      <button
+        onclick={() => shareToTwitter()}
+        class="relative overflow-hidden bg-gradient-to-r from-cyan-600 to-blue-600
+               hover:from-cyan-500 hover:to-blue-500
+               active:from-cyan-700 active:to-blue-700
+               text-white font-display font-bold text-lg
+               px-8 py-4 rounded-xl
+               shadow-xl shadow-cyan-500/40 hover:shadow-cyan-500/60
+               transition-all duration-200 transform hover:scale-105 active:scale-100"
+      >
+        <span class="relative z-10 flex items-center gap-2">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+          </svg>
+          SHARE W
+        </span>
+      </button>
+    </div>
   </div>
 
   <!-- Footer -->

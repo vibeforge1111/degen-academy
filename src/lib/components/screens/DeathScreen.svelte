@@ -15,6 +15,21 @@
     const seconds = totalSeconds % 60;
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   }
+
+  function shareToTwitter() {
+    const text = `☠️ I got REKT in Ralph's Degen Academy!
+
+📊 Survived: ${formatTime(game.currentRun.elapsed)}
+💰 Peak: $${game.stats.highestPortfolio.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+🚨 Rugs eaten: ${game.stats.rugsEaten}
+
+Can you reach $1M without getting rugged?
+
+🎮 Play free:`;
+    const url = 'https://degen-academy.vercel.app';
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+    window.open(twitterUrl, '_blank', 'noopener,noreferrer');
+  }
 </script>
 
 <div class="min-h-screen min-h-dvh flex flex-col bg-cover bg-center relative"
@@ -125,22 +140,42 @@
       </div>
     </div>
 
-    <!-- Play Again Button -->
-    <button
-      onclick={() => startGame()}
-      class="relative overflow-hidden bg-gradient-to-r from-red-600 to-red-500
-             hover:from-red-500 hover:to-red-400
-             active:from-red-700 active:to-red-600
-             text-white font-display font-bold text-lg
-             px-12 py-4 rounded-xl
-             shadow-xl shadow-red-500/40 hover:shadow-red-500/60
-             transition-all duration-200 transform hover:scale-105 active:scale-100"
-    >
-      <span class="relative z-10 flex items-center gap-2">
-        <span>🔄</span>
-        TRY AGAIN
-      </span>
-    </button>
+    <!-- Action Buttons -->
+    <div class="flex gap-4">
+      <button
+        onclick={() => startGame()}
+        class="relative overflow-hidden bg-gradient-to-r from-red-600 to-red-500
+               hover:from-red-500 hover:to-red-400
+               active:from-red-700 active:to-red-600
+               text-white font-display font-bold text-lg
+               px-8 py-4 rounded-xl
+               shadow-xl shadow-red-500/40 hover:shadow-red-500/60
+               transition-all duration-200 transform hover:scale-105 active:scale-100"
+      >
+        <span class="relative z-10 flex items-center gap-2">
+          <span>🔄</span>
+          TRY AGAIN
+        </span>
+      </button>
+
+      <button
+        onclick={() => shareToTwitter()}
+        class="relative overflow-hidden bg-gradient-to-r from-slate-700 to-slate-600
+               hover:from-slate-600 hover:to-slate-500
+               active:from-slate-800 active:to-slate-700
+               text-white font-display font-bold text-lg
+               px-8 py-4 rounded-xl
+               shadow-xl shadow-slate-500/30 hover:shadow-slate-500/50
+               transition-all duration-200 transform hover:scale-105 active:scale-100"
+      >
+        <span class="relative z-10 flex items-center gap-2">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+          </svg>
+          SHARE L
+        </span>
+      </button>
+    </div>
   </div>
 
   <!-- Footer -->
