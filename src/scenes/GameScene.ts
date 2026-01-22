@@ -90,6 +90,17 @@ export class GameScene extends Phaser.Scene {
     };
   }
 
+  // Layout constants for proper positioning
+  private readonly LAYOUT = {
+    padding: 12,
+    topBarHeight: 60,
+    bottomBarHeight: 65,
+    ralphChatHeight: 45,
+    cardWidth: 200,
+    cardHeight: 155,
+    cardGap: 12,
+  };
+
   private createUI(): void {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
@@ -104,19 +115,28 @@ export class GameScene extends Phaser.Scene {
     // Scanlines effect for immersion
     this.createScanlines();
 
-    // Top bar
-    this.createTopBar();
+    // Calculate layout positions from top to bottom
+    const topBarY = this.LAYOUT.padding;
+    const topBarEnd = topBarY + this.LAYOUT.topBarHeight;
 
-    // Pool grid
-    this.createPoolGrid();
+    // Pool grid - 2 rows of 3 cards
+    const poolGridTop = topBarEnd + this.LAYOUT.padding;
+    const poolGridHeight = (this.LAYOUT.cardHeight * 2) + this.LAYOUT.cardGap;
+    const poolGridEnd = poolGridTop + poolGridHeight;
 
     // Ralph chat
-    this.createRalphChat();
+    const ralphY = poolGridEnd + this.LAYOUT.padding + (this.LAYOUT.ralphChatHeight / 2);
 
     // Bottom bar
-    this.createBottomBar();
+    const bottomBarY = height - this.LAYOUT.padding - this.LAYOUT.bottomBarHeight;
 
-    // Toast container
+    // Create UI elements with calculated positions
+    this.createTopBar(topBarY);
+    this.createPoolGrid(poolGridTop);
+    this.createRalphChat(ralphY);
+    this.createBottomBar(bottomBarY);
+
+    // Toast container (top right)
     this.toastContainer = this.add.container(width - 20, 100);
   }
 
@@ -132,107 +152,115 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private createTopBar(): void {
+  private createTopBar(topY: number): void {
     const width = this.cameras.main.width;
+    const barHeight = this.LAYOUT.topBarHeight;
+    const barLeft = this.LAYOUT.padding;
+    const barWidth = width - (this.LAYOUT.padding * 2);
 
-    // Top bar background with gradient effect
+    // Top bar background
     const topBarBg = this.add.graphics();
-    topBarBg.fillStyle(COLORS.bgMedium, 1);
-    topBarBg.fillRoundedRect(10, 10, width - 20, 70, 12);
+    topBarBg.fillStyle(COLORS.bgMedium, 0.95);
+    topBarBg.fillRoundedRect(barLeft, topY, barWidth, barHeight, 10);
     topBarBg.lineStyle(1, COLORS.border, 1);
-    topBarBg.strokeRoundedRect(10, 10, width - 20, 70, 12);
+    topBarBg.strokeRoundedRect(barLeft, topY, barWidth, barHeight, 10);
 
-    // Logo/Title
-    this.add.text(30, 28, '🎓', { fontSize: '28px' });
-    this.add.text(65, 30, 'DEGEN ACADEMY', {
+    // Logo/Title (left)
+    const logoX = barLeft + 15;
+    this.add.text(logoX, topY + 12, '🎓', { fontSize: '24px' });
+    this.add.text(logoX + 32, topY + 12, 'DEGEN ACADEMY', {
       fontFamily: 'Space Grotesk, sans-serif',
-      fontSize: '22px',
+      fontSize: '18px',
       color: '#8B5CF6',
       fontStyle: 'bold',
     });
-    this.add.text(65, 52, 'Learn DeFi by getting rekt', {
+    this.add.text(logoX + 32, topY + 34, 'Learn DeFi by getting rekt', {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '11px',
+      fontSize: '10px',
       color: '#71717A',
     });
 
     // Portfolio section (centered)
     const portfolioX = width / 2;
+    const portfolioY = topY + 10;
 
-    this.add.text(portfolioX, 22, '💰 PORTFOLIO', {
-      fontFamily: 'Inter, sans-serif',
-      fontSize: '11px',
-      color: '#A1A1AA',
-      fontStyle: 'bold',
-    }).setOrigin(0.5, 0);
-
-    this.portfolioText = this.add.text(portfolioX, 42, '$10,000.00', {
-      fontFamily: 'JetBrains Mono, monospace',
-      fontSize: '26px',
-      color: '#FFFFFF',
-      fontStyle: 'bold',
-    }).setOrigin(0.5, 0);
-
-    this.portfolioChange = this.add.text(portfolioX + 100, 48, '+$0.00/s', {
-      fontFamily: 'JetBrains Mono, monospace',
-      fontSize: '12px',
-      color: '#10B981',
-    }).setOrigin(0, 0.5);
-
-    // Halving section (right side)
-    const halvingX = width - 180;
-
-    // Halving container
-    const halvingBg = this.add.graphics();
-    halvingBg.fillStyle(COLORS.surface, 1);
-    halvingBg.fillRoundedRect(halvingX - 10, 18, 160, 54, 8);
-
-    this.add.text(halvingX, 25, '⏱️ NEXT HALVING', {
+    this.add.text(portfolioX, portfolioY, '💰 PORTFOLIO', {
       fontFamily: 'Inter, sans-serif',
       fontSize: '10px',
       color: '#A1A1AA',
       fontStyle: 'bold',
-    });
+    }).setOrigin(0.5, 0);
 
-    this.halvingText = this.add.text(halvingX, 42, '5:00', {
+    this.portfolioText = this.add.text(portfolioX, portfolioY + 16, '$10,000.00', {
       fontFamily: 'JetBrains Mono, monospace',
       fontSize: '22px',
+      color: '#FFFFFF',
+      fontStyle: 'bold',
+    }).setOrigin(0.5, 0);
+
+    this.portfolioChange = this.add.text(portfolioX + 90, portfolioY + 22, '+$0.00/s', {
+      fontFamily: 'JetBrains Mono, monospace',
+      fontSize: '11px',
+      color: '#10B981',
+    }).setOrigin(0, 0.5);
+
+    // Halving section (right side)
+    const halvingX = width - barLeft - 160;
+    const halvingY = topY + 6;
+
+    // Halving container
+    const halvingBg = this.add.graphics();
+    halvingBg.fillStyle(COLORS.surface, 1);
+    halvingBg.fillRoundedRect(halvingX, halvingY, 148, 48, 8);
+
+    this.add.text(halvingX + 10, halvingY + 8, '⏱️ HALVING', {
+      fontFamily: 'Inter, sans-serif',
+      fontSize: '9px',
+      color: '#A1A1AA',
+      fontStyle: 'bold',
+    });
+
+    this.halvingText = this.add.text(halvingX + 10, halvingY + 22, '5:00', {
+      fontFamily: 'JetBrains Mono, monospace',
+      fontSize: '18px',
       color: '#F59E0B',
       fontStyle: 'bold',
     });
 
-    // Progress bar background
-    this.halvingBarBg = this.add.rectangle(halvingX + 75, 58, 60, 6, COLORS.border);
+    // Progress bar
+    this.halvingBarBg = this.add.rectangle(halvingX + 75, halvingY + 38, 60, 5, COLORS.border);
     this.halvingBarBg.setOrigin(0, 0.5);
 
-    this.halvingBar = this.add.rectangle(halvingX + 75, 58, 0, 6, COLORS.secondary);
+    this.halvingBar = this.add.rectangle(halvingX + 75, halvingY + 38, 0, 5, COLORS.secondary);
     this.halvingBar.setOrigin(0, 0.5);
 
     // Multiplier badge
-    this.multiplierText = this.add.text(halvingX + 140, 42, '1x', {
+    this.multiplierText = this.add.text(halvingX + 130, halvingY + 24, '1x', {
       fontFamily: 'JetBrains Mono, monospace',
-      fontSize: '14px',
+      fontSize: '13px',
       color: '#F59E0B',
       fontStyle: 'bold',
     }).setOrigin(0.5);
   }
 
-  private createPoolGrid(): void {
+  private createPoolGrid(gridTopY: number): void {
     const width = this.cameras.main.width;
-    const startY = 100;
-    const cardWidth = 195;
-    const cardHeight = 180;
-    const gap = 15;
+    const cardWidth = this.LAYOUT.cardWidth;
+    const cardHeight = this.LAYOUT.cardHeight;
+    const gap = this.LAYOUT.cardGap;
 
     // Calculate total width of 3 cards + gaps
     const totalWidth = (cardWidth * 3) + (gap * 2);
     const startX = (width - totalWidth) / 2 + cardWidth / 2;
 
+    // Card positions use TOP-LEFT anchoring now (not centered)
+    // So row 0 cards start at gridTopY, row 1 at gridTopY + cardHeight + gap
     this.gameState.pools.forEach((pool, index) => {
       const col = index % 3;
       const row = Math.floor(index / 3);
       const x = startX + col * (cardWidth + gap);
-      const y = startY + row * (cardHeight + gap);
+      // Position is CENTER of card, so add half height
+      const y = gridTopY + (cardHeight / 2) + row * (cardHeight + gap);
 
       const card = this.createPoolCard(pool, x, y, cardWidth, cardHeight);
       this.poolCards.set(pool.id, card);
@@ -244,23 +272,23 @@ export class GameScene extends Phaser.Scene {
 
     // Card background with rounded corners
     const bg = this.add.graphics();
-    bg.fillStyle(COLORS.bgLight, 1);
-    bg.fillRoundedRect(-w / 2, -h / 2, w, h, 12);
+    bg.fillStyle(COLORS.bgLight, 0.95);
+    bg.fillRoundedRect(-w / 2, -h / 2, w, h, 10);
     bg.lineStyle(1, COLORS.border, 1);
-    bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 12);
+    bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 10);
 
     // Risk indicator stripe at top
     const riskColor = pool.riskLevel === 'safe' ? COLORS.success :
                       pool.riskLevel === 'medium' ? COLORS.warning : COLORS.danger;
     const stripe = this.add.graphics();
     stripe.fillStyle(riskColor, 1);
-    stripe.fillRoundedRect(-w / 2, -h / 2, w, 4, { tl: 12, tr: 12, bl: 0, br: 0 });
+    stripe.fillRoundedRect(-w / 2, -h / 2, w, 3, { tl: 10, tr: 10, bl: 0, br: 0 });
 
     // Pool name with emoji
     const riskEmoji = getRiskEmoji(pool.riskLevel);
-    const nameText = this.add.text(0, -h / 2 + 22, `${riskEmoji} ${pool.name}`, {
+    const nameText = this.add.text(0, -h / 2 + 16, `${riskEmoji} ${pool.name}`, {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '14px',
+      fontSize: '12px',
       color: '#FFFFFF',
       fontStyle: 'bold',
     }).setOrigin(0.5);
@@ -269,60 +297,61 @@ export class GameScene extends Phaser.Scene {
     const riskLabel = getRiskLabel(pool.riskLevel);
     const riskLabelColor = pool.riskLevel === 'safe' ? '#10B981' :
                            pool.riskLevel === 'medium' ? '#F59E0B' : '#EF4444';
-    const riskText = this.add.text(0, -h / 2 + 42, riskLabel.toUpperCase(), {
+    const riskText = this.add.text(0, -h / 2 + 32, riskLabel.toUpperCase(), {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '9px',
+      fontSize: '8px',
       color: riskLabelColor,
       fontStyle: 'bold',
     }).setOrigin(0.5);
 
-    // APY - big and bold
-    const apyText = this.add.text(0, -10, `${pool.apy}%`, {
+    // APY - big and bold (moved up)
+    const apyText = this.add.text(0, -12, `${pool.apy}%`, {
       fontFamily: 'JetBrains Mono, monospace',
-      fontSize: '36px',
+      fontSize: '28px',
       color: '#FFFFFF',
       fontStyle: 'bold',
     }).setOrigin(0.5);
 
-    this.add.text(0, 22, 'APY', {
+    const apyLabel = this.add.text(0, 12, 'APY', {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '12px',
+      fontSize: '10px',
       color: '#71717A',
     }).setOrigin(0.5);
 
-    // Deposited section
+    // Deposited section (compact)
     const depositedBg = this.add.graphics();
     depositedBg.fillStyle(COLORS.surface, 1);
-    depositedBg.fillRoundedRect(-w / 2 + 10, 40, w - 20, 36, 6);
+    depositedBg.fillRoundedRect(-w / 2 + 8, 26, w - 16, 28, 5);
 
-    const depositedText = this.add.text(-w / 2 + 20, 50, '$0.00', {
+    const depositedText = this.add.text(-w / 2 + 14, 34, '$0.00', {
       fontFamily: 'JetBrains Mono, monospace',
-      fontSize: '16px',
+      fontSize: '13px',
       color: '#10B981',
       fontStyle: 'bold',
     });
 
-    const yieldText = this.add.text(w / 2 - 20, 50, '+$0.00/s', {
+    const yieldText = this.add.text(w / 2 - 14, 34, '+$0.00/s', {
       fontFamily: 'JetBrains Mono, monospace',
-      fontSize: '11px',
+      fontSize: '9px',
       color: '#71717A',
     }).setOrigin(1, 0);
 
-    // Action buttons
-    const btnY = h / 2 - 25;
-    const btnWidth = (w - 30) / 2;
+    // Action buttons (compact)
+    const btnY = h / 2 - 18;
+    const btnWidth = (w - 24) / 2;
+    const btnHeight = 26;
 
     // Deposit button
-    const depositBtn = this.createCardButton(-w / 4 + 2, btnY, btnWidth - 5, 32, '+$1K', COLORS.primary, () => {
+    const depositBtn = this.createCardButton(-w / 4 + 1, btnY, btnWidth - 4, btnHeight, '+$1K', COLORS.primary, () => {
       this.deposit(pool.id, 1000);
     });
 
     // Withdraw button
-    const withdrawBtn = this.createCardButton(w / 4 - 2, btnY, btnWidth - 5, 32, 'OUT', COLORS.surface, () => {
+    const withdrawBtn = this.createCardButton(w / 4 - 1, btnY, btnWidth - 4, btnHeight, 'OUT', COLORS.surface, () => {
       this.withdrawAll(pool.id);
     });
 
-    container.add([bg, stripe, nameText, riskText, apyText, depositedBg, depositedText, yieldText, ...depositBtn, ...withdrawBtn]);
+    container.add([bg, stripe, nameText, riskText, apyText, apyLabel, depositedBg, depositedText, yieldText, ...depositBtn, ...withdrawBtn]);
 
     // Create a rectangle for the card background that can be colored
     const cardBg = this.add.rectangle(x, y, w, h);
@@ -377,122 +406,125 @@ export class GameScene extends Phaser.Scene {
     return [bg, hitbox, label];
   }
 
-  private createRalphChat(): void {
+  private createRalphChat(centerY: number): void {
     const width = this.cameras.main.width;
-    const y = 505;
+    const chatHeight = this.LAYOUT.ralphChatHeight;
+    const chatWidth = width - (this.LAYOUT.padding * 2);
 
     // Chat container background
-    this.ralphContainer = this.add.container(width / 2, y);
+    this.ralphContainer = this.add.container(width / 2, centerY);
 
     const chatBg = this.add.graphics();
-    chatBg.fillStyle(COLORS.bgLight, 1);
-    chatBg.fillRoundedRect(-width / 2 + 20, -25, width - 40, 50, 10);
+    chatBg.fillStyle(COLORS.bgLight, 0.95);
+    chatBg.fillRoundedRect(-chatWidth / 2, -chatHeight / 2, chatWidth, chatHeight, 8);
     chatBg.lineStyle(1, COLORS.border, 1);
-    chatBg.strokeRoundedRect(-width / 2 + 20, -25, width - 40, 50, 10);
+    chatBg.strokeRoundedRect(-chatWidth / 2, -chatHeight / 2, chatWidth, chatHeight, 8);
 
     // Ralph avatar
     const avatarBg = this.add.graphics();
     avatarBg.fillStyle(COLORS.primary, 0.2);
-    avatarBg.fillCircle(-width / 2 + 50, 0, 18);
+    avatarBg.fillCircle(-chatWidth / 2 + 28, 0, 16);
 
-    const avatar = this.add.text(-width / 2 + 50, 0, '🐕', { fontSize: '20px' }).setOrigin(0.5);
+    const avatar = this.add.text(-chatWidth / 2 + 28, 0, '🐕', { fontSize: '18px' }).setOrigin(0.5);
 
     // Ralph text
-    this.ralphText = this.add.text(-width / 2 + 80, 0, 'Ralph: "..."', {
+    this.ralphText = this.add.text(-chatWidth / 2 + 55, 0, '"..."', {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '14px',
+      fontSize: '13px',
       color: '#A1A1AA',
       fontStyle: 'italic',
-      wordWrap: { width: width - 160 },
+      wordWrap: { width: chatWidth - 80 },
     }).setOrigin(0, 0.5);
 
     this.ralphContainer.add([chatBg, avatarBg, avatar, this.ralphText]);
   }
 
-  private createBottomBar(): void {
+  private createBottomBar(barTopY: number): void {
     const width = this.cameras.main.width;
-    const height = this.cameras.main.height;
-    const barY = height - 45;
+    const barHeight = this.LAYOUT.bottomBarHeight;
+    const barLeft = this.LAYOUT.padding;
+    const barWidth = width - (this.LAYOUT.padding * 2);
+    const barCenterY = barTopY + barHeight / 2;
 
     // Bottom bar background
     const bottomBg = this.add.graphics();
-    bottomBg.fillStyle(COLORS.bgMedium, 1);
-    bottomBg.fillRoundedRect(10, height - 80, width - 20, 70, 12);
+    bottomBg.fillStyle(COLORS.bgMedium, 0.95);
+    bottomBg.fillRoundedRect(barLeft, barTopY, barWidth, barHeight, 10);
     bottomBg.lineStyle(1, COLORS.border, 1);
-    bottomBg.strokeRoundedRect(10, height - 80, width - 20, 70, 12);
+    bottomBg.strokeRoundedRect(barLeft, barTopY, barWidth, barHeight, 10);
 
     // Items section
-    const itemStartX = 40;
+    const itemStartX = barLeft + 25;
 
     // Audit item
-    this.createItemSlot(itemStartX, barY, '🛡️', 'AUDIT', GAME_CONSTANTS.AUDIT_COST, () => this.buyAudit());
-    this.auditsText = this.add.text(itemStartX + 45, barY - 8, '0', {
+    this.createItemSlot(itemStartX, barCenterY, '🛡️', 'AUDIT', GAME_CONSTANTS.AUDIT_COST, () => this.buyAudit());
+    this.auditsText = this.add.text(itemStartX + 38, barCenterY - 6, '0', {
       fontFamily: 'JetBrains Mono, monospace',
-      fontSize: '18px',
+      fontSize: '16px',
       color: '#FFFFFF',
       fontStyle: 'bold',
     }).setOrigin(0, 0.5);
 
     // Insurance item
-    this.createItemSlot(itemStartX + 180, barY, '🏥', 'INSURANCE', GAME_CONSTANTS.INSURANCE_COST, () => this.buyInsurance());
-    this.insuranceText = this.add.text(itemStartX + 225, barY - 8, '0', {
+    this.createItemSlot(itemStartX + 160, barCenterY, '🏥', 'INSURANCE', GAME_CONSTANTS.INSURANCE_COST, () => this.buyInsurance());
+    this.insuranceText = this.add.text(itemStartX + 198, barCenterY - 6, '0', {
       fontFamily: 'JetBrains Mono, monospace',
-      fontSize: '18px',
+      fontSize: '16px',
       color: '#FFFFFF',
       fontStyle: 'bold',
     }).setOrigin(0, 0.5);
 
-    // Gas indicator (right side)
-    const gasX = width - 150;
-
-    const gasBg = this.add.graphics();
-    gasBg.fillStyle(COLORS.surface, 1);
-    gasBg.fillRoundedRect(gasX - 10, barY - 25, 130, 50, 8);
-
-    this.add.text(gasX, barY - 12, '⛽ GAS PRICE', {
-      fontFamily: 'Inter, sans-serif',
-      fontSize: '10px',
-      color: '#71717A',
-      fontStyle: 'bold',
-    });
-
-    this.gasText = this.add.text(gasX, barY + 8, '1x NORMAL', {
-      fontFamily: 'JetBrains Mono, monospace',
-      fontSize: '14px',
-      color: '#10B981',
-      fontStyle: 'bold',
-    });
-
     // Goal indicator (center)
     const goalX = width / 2;
-    this.add.text(goalX, barY - 12, '🎯 GOAL', {
+    this.add.text(goalX, barCenterY - 10, '🎯 GOAL', {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '10px',
+      fontSize: '9px',
       color: '#71717A',
       fontStyle: 'bold',
     }).setOrigin(0.5);
 
-    this.add.text(goalX, barY + 8, '$1,000,000', {
+    this.add.text(goalX, barCenterY + 8, '$1,000,000', {
       fontFamily: 'JetBrains Mono, monospace',
-      fontSize: '16px',
+      fontSize: '15px',
       color: '#8B5CF6',
       fontStyle: 'bold',
     }).setOrigin(0.5);
+
+    // Gas indicator (right side)
+    const gasX = width - barLeft - 130;
+
+    const gasBg = this.add.graphics();
+    gasBg.fillStyle(COLORS.surface, 1);
+    gasBg.fillRoundedRect(gasX, barTopY + 8, 118, barHeight - 16, 6);
+
+    this.add.text(gasX + 10, barCenterY - 10, '⛽ GAS', {
+      fontFamily: 'Inter, sans-serif',
+      fontSize: '9px',
+      color: '#71717A',
+      fontStyle: 'bold',
+    });
+
+    this.gasText = this.add.text(gasX + 10, barCenterY + 8, '1x NORMAL', {
+      fontFamily: 'JetBrains Mono, monospace',
+      fontSize: '12px',
+      color: '#10B981',
+      fontStyle: 'bold',
+    });
   }
 
   private createItemSlot(x: number, y: number, emoji: string, label: string, cost: number, callback: () => void): void {
     // Item background
     const itemBg = this.add.graphics();
     itemBg.fillStyle(COLORS.surface, 1);
-    itemBg.fillRoundedRect(x - 10, y - 25, 150, 50, 8);
+    itemBg.fillRoundedRect(x - 8, y - 22, 135, 44, 6);
 
     // Emoji
-    this.add.text(x, y - 5, emoji, { fontSize: '24px' }).setOrigin(0, 0.5);
+    this.add.text(x, y - 4, emoji, { fontSize: '20px' }).setOrigin(0, 0.5);
 
     // Label
-    this.add.text(x + 70, y - 15, label, {
+    this.add.text(x + 60, y - 12, label, {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '10px',
+      fontSize: '9px',
       color: '#71717A',
       fontStyle: 'bold',
     }).setOrigin(0, 0);
@@ -500,14 +532,14 @@ export class GameScene extends Phaser.Scene {
     // Buy button
     const btnBg = this.add.graphics();
     btnBg.fillStyle(COLORS.primary, 1);
-    btnBg.fillRoundedRect(x + 85, y - 5, 50, 24, 4);
+    btnBg.fillRoundedRect(x + 75, y - 2, 45, 22, 4);
 
-    const btnHitbox = this.add.rectangle(x + 110, y + 7, 50, 24, 0x000000, 0);
+    const btnHitbox = this.add.rectangle(x + 97.5, y + 9, 45, 22, 0x000000, 0);
     btnHitbox.setInteractive({ useHandCursor: true });
 
-    this.add.text(x + 110, y + 7, `$${cost}`, {
+    this.add.text(x + 97.5, y + 9, `$${cost}`, {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '11px',
+      fontSize: '10px',
       color: '#FFFFFF',
       fontStyle: 'bold',
     }).setOrigin(0.5);
@@ -515,13 +547,13 @@ export class GameScene extends Phaser.Scene {
     btnHitbox.on('pointerover', () => {
       btnBg.clear();
       btnBg.fillStyle(COLORS.primaryHover, 1);
-      btnBg.fillRoundedRect(x + 85, y - 5, 50, 24, 4);
+      btnBg.fillRoundedRect(x + 75, y - 2, 45, 22, 4);
     });
 
     btnHitbox.on('pointerout', () => {
       btnBg.clear();
       btnBg.fillStyle(COLORS.primary, 1);
-      btnBg.fillRoundedRect(x + 85, y - 5, 50, 24, 4);
+      btnBg.fillRoundedRect(x + 75, y - 2, 45, 22, 4);
     });
 
     btnHitbox.on('pointerup', callback);
