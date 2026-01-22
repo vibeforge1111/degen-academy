@@ -83,6 +83,15 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Set LINEAR filtering on all loaded textures for smooth scaling (no pixelation)
+    const textureKeys = ['lab-bg', 'icon-start', 'icon-goal', 'icon-halving'];
+    textureKeys.forEach((key) => {
+      const texture = this.textures.get(key);
+      if (texture) {
+        texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
+      }
+    });
+
     // Short delay before transitioning to menu
     this.time.delayedCall(800, () => {
       this.scene.start('MenuScene');

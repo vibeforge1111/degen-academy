@@ -13,7 +13,7 @@ export const GAME_WIDTH = 1280;
 export const GAME_HEIGHT = 720;
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
-  type: Phaser.AUTO,
+  type: Phaser.WEBGL,  // Force WebGL for smooth rendering
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
   parent: 'game-container',
@@ -27,9 +27,12 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     parent: 'game-container',
   },
   render: {
-    pixelArt: false,
-    antialias: true,
-    roundPixels: false,  // Keep false for smooth high-res image scaling
+    pixelArt: false,        // NO pixel art mode
+    antialias: true,        // Enable antialiasing
+    antialiasGL: true,      // Enable WebGL antialiasing
+    roundPixels: false,     // NO pixel rounding
+    transparent: false,
+    mipmapFilter: 'LINEAR', // Smooth mipmap filtering
   },
   dom: {
     createContainer: true,
