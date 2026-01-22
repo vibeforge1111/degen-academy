@@ -1,5 +1,5 @@
 // Game Store - Svelte 5 Runes
-// Central state management for DEGEN ACADEMY
+// DEGEN ACADEMY - Competitive Economy v2.0
 
 import { GAME_CONSTANTS } from '../../data/constants';
 import { createInitialPools } from '../../data/pools';
@@ -9,8 +9,6 @@ import type { GameState, Pool, EventType, GameEvent } from '../../types/game';
 
 // Screen types
 export type Screen = 'menu' | 'game' | 'death' | 'win';
-
-type Toast = { id: string; title: string; message: string; type: 'success' | 'danger' | 'warning' | 'info' };
 
 // Ralph notification - replaces toasts, shows in Ralph section
 type RalphNotification = {
@@ -26,7 +24,12 @@ function createInitialState(): GameState {
   return {
     portfolio: GAME_CONSTANTS.STARTING_PORTFOLIO,
     pools: createInitialPools(),
-    items: { audits: 0, insurance: 0 },
+    items: {
+      insuranceActive: false,
+      insuranceEndTime: null,
+      insuranceCooldownEnd: null,
+      hedgeMode: false,
+    },
     halvingMultiplier: 1,
     gasMultiplier: 1,
     gasEndTime: null,
@@ -44,17 +47,19 @@ function createInitialState(): GameState {
       gamesPlayed: savedStats.gamesPlayed,
       totalTimePlayed: savedStats.totalTimePlayed,
       fastestWin: savedStats.fastestWin,
+      auditsUsed: 0,
+      insurancesUsed: 0,
+      leveragedWins: 0,
     },
   };
 }
 
-// Reactive store object - we only mutate properties, never reassign the whole object
+// Reactive store object
 const store = $state({
   currentScreen: 'menu' as Screen,
   game: createInitialState(),
   ralphQuote: getRandomQuote('welcome'),
   ralphNotification: null as RalphNotification,
-  toasts: [] as Toast[],
 });
 
 // Intervals
@@ -62,24 +67,10 @@ let yieldInterval: number | null = null;
 let rngInterval: number | null = null;
 let nextRngTime: number = 0;
 
-// Getter functions for reactive state access
-export function getCurrentScreen(): Screen {
-  return store.currentScreen;
-}
+// ===========================================
+// DERIVED GETTERS
+// ===========================================
 
-export function getGameState(): GameState {
-  return store.game;
-}
-
-export function getRalphQuote(): string {
-  return store.ralphQuote;
-}
-
-export function getToasts(): Toast[] {
-  return store.toasts;
-}
-
-// Derived getters (exported as functions to maintain reactivity)
 export const currentScreen = {
   get value() { return store.currentScreen; }
 };
@@ -96,11 +87,6 @@ export const ralphNotification = {
   get value() { return store.ralphNotification; }
 };
 
-export const toasts = {
-  get value() { return store.toasts; }
-};
-
-// Simple derived values
 export const portfolio = {
   get value() { return store.game.portfolio; }
 };
@@ -129,6 +115,47 @@ export const isVictory = {
   get value() { return store.game.isVictory; }
 };
 
+// ===========================================
+// COMPUTED VALUES
+// ===========================================
+
+// Count pools with deposits
+export function getActivePoolCount(): number {
+  return store.game.pools.filter(p => !p.isRugged && p.deposited > 0).length;
+}
+
+// Get diversification multiplier
+export function getDiversificationBonus(): number {
+  const count = getActivePoolCount();
+  const bonus = GAME_CONSTANTS.DIVERSIFICATION_BONUS;
+  if (count >= 6) return bonus[6];
+  if (count >= 5) return bonus[5];
+  if (count >= 4) return bonus[4];
+  if (count >= 3) return bonus[3];
+  return bonus[1];
+}
+
+// Get total deposited across all pools
+export function getTotalDeposited(): number {
+  return store.game.pools.reduce((sum, p) => sum + (p.isRugged ? 0 : p.deposited), 0);
+}
+
+// Check concentration for a specific pool
+export function getConcentrationPenalty(pool: Pool): number {
+  const totalDeposited = getTotalDeposited();
+  if (totalDeposited === 0 || pool.deposited === 0) return 0;
+
+  const concentration = pool.deposited / totalDeposited;
+
+  if (concentration > GAME_CONSTANTS.CONCENTRATION_THRESHOLD_2) {
+    return GAME_CONSTANTS.CONCENTRATION_PENALTY_2;
+  }
+  if (concentration > GAME_CONSTANTS.CONCENTRATION_THRESHOLD_1) {
+    return GAME_CONSTANTS.CONCENTRATION_PENALTY_1;
+  }
+  return 0;
+}
+
 // Calculate time until next halving
 export function halvingTimeRemaining(): number {
   const elapsed = store.game.currentRun.elapsed;
@@ -137,34 +164,96 @@ export function halvingTimeRemaining(): number {
   return interval - timeInCycle;
 }
 
-// Calculate total yield per second
+// Check if insurance is on cooldown
+export function isInsuranceOnCooldown(): boolean {
+  const cooldownEnd = store.game.items.insuranceCooldownEnd;
+  return cooldownEnd !== null && Date.now() < cooldownEnd;
+}
+
+// Get insurance cooldown remaining
+export function getInsuranceCooldownRemaining(): number {
+  const cooldownEnd = store.game.items.insuranceCooldownEnd;
+  if (!cooldownEnd) return 0;
+  return Math.max(0, cooldownEnd - Date.now());
+}
+
+// Get insurance active time remaining
+export function getInsuranceTimeRemaining(): number {
+  const endTime = store.game.items.insuranceEndTime;
+  if (!endTime || !store.game.items.insuranceActive) return 0;
+  return Math.max(0, endTime - Date.now());
+}
+
+// Check if any pool is leveraged
+export function getLeveragedPool(): Pool | null {
+  return store.game.pools.find(p => p.isLeveraged && !p.isRugged) ?? null;
+}
+
+// Calculate total yield per second (for display)
 export function totalYieldPerSecond(): number {
   let total = 0;
+  const diversificationBonus = getDiversificationBonus();
+
   for (const pool of store.game.pools) {
     if (pool.isRugged || pool.deposited <= 0) continue;
-    // Base yield per second (annual rate / seconds in year) × speed multiplier
+
     let yps = pool.deposited * (pool.apy / 100) / 365 / 24 / 60 / 60;
-    yps *= GAME_CONSTANTS.YIELD_SPEED_MULTIPLIER; // Speed up for gameplay!
+    yps *= GAME_CONSTANTS.YIELD_SPEED_MULTIPLIER;
     yps *= store.game.halvingMultiplier;
+    yps *= diversificationBonus;
+
+    // Leverage doubles yields
+    if (pool.isLeveraged) {
+      yps *= GAME_CONSTANTS.LEVERAGE_MULTIPLIER;
+    }
+
+    // Pump bonus
     if (pool.isPumping) yps *= GAME_CONSTANTS.PUMP_MULTIPLIER;
+
+    // Whale dump reduction
     if (store.game.whaleEndTime && Date.now() < store.game.whaleEndTime) {
-      const reduction = store.game.items.insurance > 0
+      const reduction = store.game.items.insuranceActive
         ? GAME_CONSTANTS.WHALE_YIELD_REDUCTION * GAME_CONSTANTS.INSURANCE_DAMAGE_REDUCTION
         : GAME_CONSTANTS.WHALE_YIELD_REDUCTION;
       yps *= (1 - reduction);
     }
+
+    // Hedge mode reduces yields
+    if (store.game.items.hedgeMode) {
+      yps *= (1 - GAME_CONSTANTS.HEDGE_YIELD_REDUCTION);
+    }
+
     total += yps;
   }
+
   return total;
 }
 
-// Actions
+// ===========================================
+// ITEM COST CALCULATIONS
+// ===========================================
+
+export function getAuditCost(pool: Pool): number {
+  return pool.deposited * GAME_CONSTANTS.AUDIT_COST_PERCENT * store.game.gasMultiplier;
+}
+
+export function getInsuranceCost(): number {
+  return store.game.portfolio * GAME_CONSTANTS.INSURANCE_COST_PERCENT * store.game.gasMultiplier;
+}
+
+export function getHedgeCostPerTick(): number {
+  return store.game.portfolio * GAME_CONSTANTS.HEDGE_COST_PERCENT_PER_TICK;
+}
+
+// ===========================================
+// ACTIONS
+// ===========================================
+
 export function setScreen(screen: Screen) {
   store.currentScreen = screen;
 }
 
 export function startGame() {
-  // Reset game state by copying fresh values
   const fresh = createInitialState();
   store.game.portfolio = fresh.portfolio;
   store.game.pools = fresh.pools;
@@ -186,16 +275,15 @@ export function startGame() {
 function startIntervals() {
   stopIntervals();
 
-  // Yield tick every second
   yieldInterval = setInterval(() => {
     tickYields();
+    tickHedgeDrain();
     updateElapsed();
     checkHalving();
     checkTemporaryEffects();
     checkEndConditions();
   }, GAME_CONSTANTS.YIELD_TICK_MS) as unknown as number;
 
-  // RNG events
   resetRngInterval();
   rngInterval = setInterval(() => {
     if (Date.now() >= nextRngTime) {
@@ -220,24 +308,37 @@ function resetRngInterval() {
 
 function tickYields() {
   let totalYield = 0;
+  const diversificationBonus = getDiversificationBonus();
 
   for (const pool of store.game.pools) {
     if (pool.isRugged || pool.deposited <= 0) continue;
 
-    // Base yield per second (annual rate / seconds in year) × speed multiplier
     let yps = pool.deposited * (pool.apy / 100) / 365 / 24 / 60 / 60;
-    yps *= GAME_CONSTANTS.YIELD_SPEED_MULTIPLIER; // Speed up for gameplay!
+    yps *= GAME_CONSTANTS.YIELD_SPEED_MULTIPLIER;
     yps *= store.game.halvingMultiplier;
+    yps *= diversificationBonus;
 
+    // Leverage doubles yields
+    if (pool.isLeveraged) {
+      yps *= GAME_CONSTANTS.LEVERAGE_MULTIPLIER;
+    }
+
+    // Whale dump reduction
     if (store.game.whaleEndTime && Date.now() < store.game.whaleEndTime) {
-      const reduction = store.game.items.insurance > 0
+      const reduction = store.game.items.insuranceActive
         ? GAME_CONSTANTS.WHALE_YIELD_REDUCTION * GAME_CONSTANTS.INSURANCE_DAMAGE_REDUCTION
         : GAME_CONSTANTS.WHALE_YIELD_REDUCTION;
       yps *= (1 - reduction);
     }
 
+    // Pump bonus
     if (pool.isPumping && pool.pumpEndTime && Date.now() < pool.pumpEndTime) {
       yps *= GAME_CONSTANTS.PUMP_MULTIPLIER;
+    }
+
+    // Hedge mode reduces yields
+    if (store.game.items.hedgeMode) {
+      yps *= (1 - GAME_CONSTANTS.HEDGE_YIELD_REDUCTION);
     }
 
     totalYield += yps;
@@ -247,6 +348,19 @@ function tickYields() {
 
   if (store.game.portfolio > store.game.stats.highestPortfolio) {
     store.game.stats.highestPortfolio = store.game.portfolio;
+  }
+}
+
+function tickHedgeDrain() {
+  if (!store.game.items.hedgeMode) return;
+
+  const drain = getHedgeCostPerTick();
+  store.game.portfolio -= drain;
+
+  // Auto-disable hedge if portfolio gets too low
+  if (store.game.portfolio < drain * 5) {
+    store.game.items.hedgeMode = false;
+    showToast('🛡️ Hedge Disabled', 'Not enough funds to maintain hedge', 'warning');
   }
 }
 
@@ -278,6 +392,15 @@ function checkTemporaryEffects() {
     store.game.whaleEndTime = null;
   }
 
+  // Check insurance expiry
+  if (store.game.items.insuranceActive && store.game.items.insuranceEndTime && now >= store.game.items.insuranceEndTime) {
+    store.game.items.insuranceActive = false;
+    store.game.items.insuranceEndTime = null;
+    // Start cooldown
+    store.game.items.insuranceCooldownEnd = now + GAME_CONSTANTS.INSURANCE_COOLDOWN_MS;
+    showToast('🏥 Insurance Expired', 'Cooldown started (90s)', 'info');
+  }
+
   for (const pool of store.game.pools) {
     if (pool.isPumping && pool.pumpEndTime && now >= pool.pumpEndTime) {
       pool.isPumping = false;
@@ -289,6 +412,13 @@ function checkTemporaryEffects() {
 function checkEndConditions() {
   if (store.game.portfolio >= GAME_CONSTANTS.WIN_PORTFOLIO) {
     store.game.isVictory = true;
+
+    // Check if won with leverage for stats
+    const leveragedPool = getLeveragedPool();
+    if (leveragedPool) {
+      store.game.stats.leveragedWins++;
+    }
+
     stopIntervals();
     saveManager.recordGameEnd(store.game.stats, true, store.game.currentRun.elapsed);
     store.currentScreen = 'win';
@@ -301,6 +431,10 @@ function checkEndConditions() {
     store.currentScreen = 'death';
   }
 }
+
+// ===========================================
+// RNG EVENTS
+// ===========================================
 
 function checkRngEvent() {
   const event = rollForEvent();
@@ -343,13 +477,24 @@ function selectTargetPool(eventType: EventType): Pool | null {
   if (activePools.length === 0) return null;
 
   if (eventType === 'rug' || eventType === 'exploit' || eventType === 'pump') {
-    const totalWeight = activePools.reduce((sum, p) => sum + p.apy, 0);
+    // Weight by APY + concentration penalty for rugs
+    let weights = activePools.map(p => {
+      let weight = p.apy;
+      if (eventType === 'rug') {
+        // Concentration increases rug chance
+        const penalty = getConcentrationPenalty(p);
+        weight *= (1 + penalty);
+      }
+      return weight;
+    });
+
+    const totalWeight = weights.reduce((sum, w) => sum + w, 0);
     const roll = Math.random() * totalWeight;
     let cumulative = 0;
 
-    for (const pool of activePools) {
-      cumulative += pool.apy;
-      if (roll < cumulative) return pool;
+    for (let i = 0; i < activePools.length; i++) {
+      cumulative += weights[i];
+      if (roll < cumulative) return activePools[i];
     }
   }
 
@@ -372,12 +517,40 @@ function executeRug(event: GameEvent) {
   const pool = store.game.pools.find(p => p.id === event.targetPoolId);
   if (!pool || pool.isRugged) return;
 
-  const lostAmount = pool.deposited;
+  // Hedge mode = immune to rugs!
+  if (store.game.items.hedgeMode) {
+    showToast('🛡️ RUG BLOCKED!', `Hedge mode saved ${pool.name}!`, 'success');
+    setRalphQuote('exploitBlocked');
+    return;
+  }
+
+  // Audit blocks rugs on this specific pool
+  if (pool.hasAudit) {
+    pool.hasAudit = false;
+    showToast('🛡️ AUDIT SAVED YOU!', `${pool.name} rug blocked by audit!`, 'success');
+    setRalphQuote('exploitBlocked');
+    return;
+  }
+
+  // Calculate loss (leverage = 2x loss!)
+  let lostAmount = pool.deposited;
+  if (pool.isLeveraged) {
+    lostAmount *= GAME_CONSTANTS.LEVERAGE_MULTIPLIER;
+    pool.isLeveraged = false;
+  }
+
+  // Insurance reduces damage
+  if (store.game.items.insuranceActive) {
+    lostAmount *= (1 - GAME_CONSTANTS.INSURANCE_DAMAGE_REDUCTION);
+  }
+
   pool.isRugged = true;
   pool.deposited = 0;
+  store.game.portfolio -= lostAmount; // Can go negative with leverage!
   store.game.stats.rugsEaten++;
 
-  showToast('🚨 RUG PULL!', `${pool.name} rugged! Lost $${lostAmount.toFixed(2)}`, 'danger');
+  const leverageText = pool.isLeveraged ? ' (2x LEVERAGE LOSS!)' : '';
+  showToast('🚨 RUG PULL!', `${pool.name} rugged! Lost $${lostAmount.toFixed(0)}${leverageText}`, 'danger');
   setRalphQuote('rug');
 }
 
@@ -387,23 +560,36 @@ function executeExploit(event: GameEvent) {
   const pool = store.game.pools.find(p => p.id === event.targetPoolId);
   if (!pool || pool.isRugged) return;
 
-  if (store.game.items.audits > 0) {
-    store.game.items.audits--;
+  // Audit blocks exploits
+  if (pool.hasAudit) {
+    pool.hasAudit = false;
+    store.game.stats.auditsUsed++;
     showToast('🛡️ EXPLOIT BLOCKED!', `Audit saved ${pool.name}!`, 'success');
     setRalphQuote('exploitBlocked');
     return;
   }
 
-  const lostAmount = pool.deposited * GAME_CONSTANTS.EXPLOIT_DAMAGE;
+  let lostAmount = pool.deposited * GAME_CONSTANTS.EXPLOIT_DAMAGE;
+
+  // Leverage = 2x loss
+  if (pool.isLeveraged) {
+    lostAmount *= GAME_CONSTANTS.LEVERAGE_MULTIPLIER;
+  }
+
+  // Insurance reduces damage
+  if (store.game.items.insuranceActive) {
+    lostAmount *= (1 - GAME_CONSTANTS.INSURANCE_DAMAGE_REDUCTION);
+  }
+
   pool.deposited -= lostAmount;
 
-  showToast('⚠️ EXPLOIT!', `${pool.name} hacked! Lost $${lostAmount.toFixed(2)}`, 'warning');
+  showToast('⚠️ EXPLOIT!', `${pool.name} hacked! Lost $${lostAmount.toFixed(0)}`, 'warning');
   setRalphQuote('exploit');
 }
 
 function executeWhaleDump() {
   store.game.whaleEndTime = Date.now() + GAME_CONSTANTS.WHALE_DURATION_MS;
-  const reduction = store.game.items.insurance > 0 ? '15%' : '30%';
+  const reduction = store.game.items.insuranceActive ? '15%' : '30%';
 
   showToast('🐋 WHALE DUMP!', `All yields -${reduction} for 60s`, 'info');
   setRalphQuote('whale');
@@ -430,7 +616,10 @@ function executePump(event: GameEvent) {
   setRalphQuote('pump');
 }
 
-// Player actions
+// ===========================================
+// PLAYER ACTIONS
+// ===========================================
+
 export function deposit(poolId: string, amount: number) {
   const pool = store.game.pools.find(p => p.id === poolId);
   if (!pool || pool.isRugged) {
@@ -441,7 +630,7 @@ export function deposit(poolId: string, amount: number) {
   const cost = amount * store.game.gasMultiplier;
   if (store.game.portfolio < cost) {
     setRalphQuote('cantAfford');
-    showToast('❌ Insufficient Funds', `Need $${cost.toFixed(2)}`, 'danger');
+    showToast('❌ Insufficient Funds', `Need $${cost.toFixed(0)}`, 'danger');
     return;
   }
 
@@ -461,59 +650,129 @@ export function withdrawAll(poolId: string) {
 
   store.game.portfolio += pool.deposited;
   pool.deposited = 0;
+  pool.hasAudit = false; // Audit is lost when you withdraw
+  pool.isLeveraged = false; // Leverage is removed
   setRalphQuote('withdraw');
 }
 
-export function buyAudit() {
-  const cost = GAME_CONSTANTS.AUDIT_COST * store.game.gasMultiplier;
+// Buy audit for a specific pool (10% of pool value)
+export function buyAudit(poolId: string) {
+  const pool = store.game.pools.find(p => p.id === poolId);
+  if (!pool || pool.isRugged || pool.deposited <= 0) {
+    showToast('❌ Invalid Pool', 'Cannot audit this pool', 'danger');
+    return;
+  }
+
+  if (pool.hasAudit) {
+    showToast('❌ Already Audited', 'This pool already has an audit', 'warning');
+    return;
+  }
+
+  const cost = getAuditCost(pool);
   if (store.game.portfolio < cost) {
     setRalphQuote('cantAfford');
+    showToast('❌ Insufficient Funds', `Need $${cost.toFixed(0)}`, 'danger');
     return;
   }
 
   store.game.portfolio -= cost;
-  store.game.items.audits++;
+  pool.hasAudit = true;
   setRalphQuote('buyAudit');
-  showToast('🛡️ Audit Purchased!', `Protection +1 (${store.game.items.audits} total)`, 'success');
+  showToast('🛡️ Audit Shield Active!', `${pool.name} protected from next rug/exploit`, 'success');
 }
 
+// Buy insurance (5% of portfolio, 60s duration)
 export function buyInsurance() {
-  const cost = GAME_CONSTANTS.INSURANCE_COST * store.game.gasMultiplier;
+  if (store.game.items.insuranceActive) {
+    showToast('❌ Already Active', 'Insurance is already active', 'warning');
+    return;
+  }
+
+  if (isInsuranceOnCooldown()) {
+    const remaining = Math.ceil(getInsuranceCooldownRemaining() / 1000);
+    showToast('❌ On Cooldown', `Wait ${remaining}s before buying again`, 'warning');
+    return;
+  }
+
+  const cost = getInsuranceCost();
   if (store.game.portfolio < cost) {
     setRalphQuote('cantAfford');
+    showToast('❌ Insufficient Funds', `Need $${cost.toFixed(0)}`, 'danger');
     return;
   }
 
   store.game.portfolio -= cost;
-  store.game.items.insurance++;
+  store.game.items.insuranceActive = true;
+  store.game.items.insuranceEndTime = Date.now() + GAME_CONSTANTS.INSURANCE_DURATION_MS;
+  store.game.items.insuranceCooldownEnd = null;
+  store.game.stats.insurancesUsed++;
+
   setRalphQuote('buyInsurance');
-  showToast('🏥 Insurance Purchased!', `Protection +1 (${store.game.items.insurance} total)`, 'success');
+  showToast('🏥 Insurance Active!', '50% damage reduction for 60s', 'success');
 }
+
+// Toggle hedge mode
+export function toggleHedge() {
+  if (store.game.items.hedgeMode) {
+    // Turn off hedge
+    store.game.items.hedgeMode = false;
+    showToast('🛡️ Hedge OFF', 'Full yields restored, rug protection removed', 'info');
+  } else {
+    // Turn on hedge - check if can afford
+    const costPerTick = getHedgeCostPerTick();
+    if (store.game.portfolio < costPerTick * 5) {
+      showToast('❌ Insufficient Funds', 'Need more funds to hedge', 'danger');
+      return;
+    }
+    store.game.items.hedgeMode = true;
+    showToast('🛡️ Hedge ON', 'Immune to rugs, -50% yields, draining 2%/sec', 'success');
+  }
+}
+
+// Toggle leverage on a pool
+export function toggleLeverage(poolId: string) {
+  const pool = store.game.pools.find(p => p.id === poolId);
+  if (!pool || pool.isRugged || pool.deposited <= 0) {
+    showToast('❌ Invalid Pool', 'Cannot leverage this pool', 'danger');
+    return;
+  }
+
+  if (pool.isLeveraged) {
+    // Turn off leverage
+    pool.isLeveraged = false;
+    showToast('📉 Leverage OFF', `${pool.name} back to normal yields`, 'info');
+  } else {
+    // Check if another pool is leveraged
+    const existingLeveraged = getLeveragedPool();
+    if (existingLeveraged) {
+      showToast('❌ Already Leveraged', `Remove leverage from ${existingLeveraged.name} first`, 'warning');
+      return;
+    }
+    pool.isLeveraged = true;
+    showToast('📈 LEVERAGE ON!', `${pool.name} now 2x yields AND 2x risk!`, 'warning');
+  }
+}
+
+// ===========================================
+// UI HELPERS
+// ===========================================
 
 export function setRalphQuote(category: QuoteCategory) {
   store.ralphQuote = getRandomQuote(category);
 }
 
+let notificationTimeout: number | null = null;
+
 export function showToast(title: string, message: string, type: 'success' | 'danger' | 'warning' | 'info') {
-  // Now routes to Ralph notification instead of toast popup
   showRalphNotification(title, message, type);
 }
 
-// Ralph announces notifications directly
-let notificationTimeout: number | null = null;
-
 export function showRalphNotification(title: string, message: string, type: 'success' | 'danger' | 'warning' | 'info' | 'neutral') {
-  // Clear any existing timeout
   if (notificationTimeout) clearTimeout(notificationTimeout);
 
   store.ralphNotification = { title, message, type };
 
-  // Auto-clear after 5 seconds, return to quote
   notificationTimeout = setTimeout(() => {
     store.ralphNotification = null;
   }, 5000) as unknown as number;
-}
-
-export function removeToast(id: string) {
-  store.toasts = store.toasts.filter(t => t.id !== id);
 }

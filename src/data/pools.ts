@@ -17,6 +17,7 @@ export function createInitialPools(): Pool[] {
     deposited: 0,
     isRugged: false,
     hasAudit: false,
+    isLeveraged: false,
     isPumping: false,
     pumpEndTime: null,
   }));

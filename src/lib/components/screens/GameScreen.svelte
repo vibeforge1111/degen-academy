@@ -1,5 +1,11 @@
 <script lang="ts">
-  import { pools, portfolio, ralphQuote, ralphNotification, items, gasMultiplier, buyAudit, buyInsurance, halvingMultiplier, halvingTimeRemaining, gameState } from '../../stores/gameStore.svelte';
+  import {
+    pools, portfolio, ralphQuote, ralphNotification, items, gasMultiplier,
+    buyInsurance, toggleHedge, halvingMultiplier, halvingTimeRemaining, gameState,
+    getInsuranceCost, getHedgeCostPerTick, getDiversificationBonus, getActivePoolCount,
+    isInsuranceOnCooldown, getInsuranceCooldownRemaining, getInsuranceTimeRemaining,
+    totalYieldPerSecond
+  } from '../../stores/gameStore.svelte';
   import { GAME_CONSTANTS } from '../../../data/constants';
   import BottomBar from '../BottomBar.svelte';
   import PoolCard from '../PoolCard.svelte';
@@ -15,10 +21,22 @@
   const halvingTime = $derived(halvingTimeRemaining());
   const halvingUrgent = $derived(halvingTime < 60000);
 
-  const auditCost = $derived(GAME_CONSTANTS.AUDIT_COST * gasMult);
-  const insuranceCost = $derived(GAME_CONSTANTS.INSURANCE_COST * gasMult);
-  const canAffordAudit = $derived(portfolioVal >= auditCost);
-  const canAffordInsurance = $derived(portfolioVal >= insuranceCost);
+  // New competitive economy values
+  const insuranceCost = $derived(getInsuranceCost());
+  const hedgeCostPerSec = $derived(getHedgeCostPerTick());
+  const diversificationBonus = $derived(getDiversificationBonus());
+  const activePoolCount = $derived(getActivePoolCount());
+  const insuranceOnCooldown = $derived(isInsuranceOnCooldown());
+  const insuranceCooldown = $derived(getInsuranceCooldownRemaining());
+  const insuranceTimeLeft = $derived(getInsuranceTimeRemaining());
+  const yieldPerSec = $derived(totalYieldPerSecond());
+
+  const canAffordInsurance = $derived(
+    portfolioVal >= insuranceCost &&
+    !itemsVal.insuranceActive &&
+    !insuranceOnCooldown
+  );
+  const canAffordHedge = $derived(portfolioVal >= hedgeCostPerSec * 5);
 
   // Notification type colors
   const notificationColors = {
@@ -96,52 +114,106 @@
 
           <!-- Action Buttons (right) -->
           <div style="display: flex; align-items: center; gap: 8px; margin-left: 16px;">
-            <div class="tooltip-wrapper">
-              <button
-                onclick={() => buyAudit()}
-                disabled={!canAffordAudit}
-                class="action-btn"
-                class:disabled={!canAffordAudit}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color: #fff; opacity: 0.85;">
-                  <path d="M12 3l8 4v5c0 5.5-3.8 10.2-8 12-4.2-1.8-8-6.5-8-12V7l8-4z"/>
-                  <path d="M9 12l2 2 4-4"/>
-                </svg>
-                <span class="font-medium">Audit</span>
-                {#if itemsVal.audits > 0}
-                  <span style="color: #a78bfa; font-weight: 700;">x{itemsVal.audits}</span>
-                {:else}
-                  <span style="color: rgba(255,255,255,0.4);">${auditCost.toFixed(0)}</span>
-                {/if}
-              </button>
-              <div class="tooltip">Protects one pool from rug pulls</div>
-            </div>
-
+            <!-- Insurance Button - 5% portfolio, 60s duration, 90s cooldown -->
             <div class="tooltip-wrapper">
               <button
                 onclick={() => buyInsurance()}
                 disabled={!canAffordInsurance}
                 class="action-btn"
                 class:disabled={!canAffordInsurance}
+                class:active={itemsVal.insuranceActive}
+                class:cooldown={insuranceOnCooldown}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color: #fff; opacity: 0.85;">
                   <circle cx="12" cy="12" r="9"/>
                   <path d="M12 8v8M8 12h8"/>
                 </svg>
                 <span class="font-medium">Insurance</span>
-                {#if itemsVal.insurance > 0}
-                  <span style="color: #4ade80; font-weight: 700;">x{itemsVal.insurance}</span>
+                {#if itemsVal.insuranceActive}
+                  <span style="color: #4ade80; font-weight: 700;">{Math.ceil(insuranceTimeLeft / 1000)}s</span>
+                {:else if insuranceOnCooldown}
+                  <span style="color: #f87171; font-weight: 700;">{Math.ceil(insuranceCooldown / 1000)}s</span>
                 {:else}
-                  <span style="color: rgba(255,255,255,0.4);">${insuranceCost.toFixed(0)}</span>
+                  <span style="color: rgba(255,255,255,0.4);">{formatMoney(insuranceCost)}</span>
                 {/if}
               </button>
-              <div class="tooltip">Reduces exploit damage by 50%</div>
+              <div class="tooltip">
+                {#if itemsVal.insuranceActive}
+                  Active! 50% damage reduction
+                {:else if insuranceOnCooldown}
+                  On cooldown - wait {Math.ceil(insuranceCooldown / 1000)}s
+                {:else}
+                  5% of portfolio, 60s protection, 50% damage reduction
+                {/if}
+              </div>
+            </div>
+
+            <!-- Hedge Mode Toggle - 2%/sec drain, immune to rugs, -50% yields -->
+            <div class="tooltip-wrapper">
+              <button
+                onclick={() => toggleHedge()}
+                disabled={!itemsVal.hedgeMode && !canAffordHedge}
+                class="action-btn"
+                class:disabled={!itemsVal.hedgeMode && !canAffordHedge}
+                class:hedge-active={itemsVal.hedgeMode}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color: #fff; opacity: 0.85;">
+                  <path d="M12 3l8 4v5c0 5.5-3.8 10.2-8 12-4.2-1.8-8-6.5-8-12V7l8-4z"/>
+                </svg>
+                <span class="font-medium">Hedge</span>
+                {#if itemsVal.hedgeMode}
+                  <span style="color: #60a5fa; font-weight: 700;">ON</span>
+                {:else}
+                  <span style="color: rgba(255,255,255,0.4);">{formatMoney(hedgeCostPerSec)}/s</span>
+                {/if}
+              </button>
+              <div class="tooltip">
+                {#if itemsVal.hedgeMode}
+                  Draining {formatMoney(hedgeCostPerSec)}/s • Click to disable
+                {:else}
+                  Immune to rugs, -50% yields, 2%/sec cost
+                {/if}
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Stats Panel -->
         <div class="stats-panel">
+          <!-- Yield/sec -->
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 10px; color: rgba(255,255,255,0.4);">Yield</span>
+            <span class="font-mono font-bold" style="font-size: 13px; color: #4ade80;">
+              +{formatMoney(yieldPerSec)}/s
+            </span>
+          </div>
+
+          <div style="width: 1px; height: 14px; background: rgba(255,255,255,0.15);"></div>
+
+          <!-- Diversification Bonus -->
+          <div class="tooltip-wrapper">
+            <div style="display: flex; align-items: center; gap: 6px; cursor: help;">
+              <span style="font-size: 10px; color: rgba(255,255,255,0.4);">Div</span>
+              <span class="font-mono font-bold" style="font-size: 13px; color: {diversificationBonus > 1 ? '#4ade80' : 'rgba(255,255,255,0.5)'};">
+                {#if diversificationBonus > 1}
+                  +{((diversificationBonus - 1) * 100).toFixed(0)}%
+                {:else}
+                  --
+                {/if}
+              </span>
+            </div>
+            <div class="tooltip">
+              {activePoolCount}/6 pools active
+              {#if diversificationBonus > 1}
+                • +{((diversificationBonus - 1) * 100).toFixed(0)}% yield bonus!
+              {:else}
+                • Need 3+ pools for bonus
+              {/if}
+            </div>
+          </div>
+
+          <div style="width: 1px; height: 14px; background: rgba(255,255,255,0.15);"></div>
+
           <!-- Halving Timer -->
           <div style="display: flex; align-items: center; gap: 6px;">
             <span style="font-size: 10px; color: rgba(255,255,255,0.4);">Halving</span>
@@ -173,6 +245,15 @@
             <div class="status-indicator info">
               <span>🐋</span>
               <span class="font-bold">Active</span>
+            </div>
+          {/if}
+
+          <!-- Hedge indicator (only when active) -->
+          {#if itemsVal.hedgeMode}
+            <div style="width: 1px; height: 14px; background: rgba(255,255,255,0.15);"></div>
+            <div class="status-indicator hedge">
+              <span>🛡️</span>
+              <span class="font-bold">HEDGE</span>
             </div>
           {/if}
         </div>
@@ -268,6 +349,36 @@
   .status-indicator.info {
     background: rgba(96, 165, 250, 0.15);
     color: #60a5fa;
+  }
+
+  .status-indicator.hedge {
+    background: rgba(96, 165, 250, 0.15);
+    color: #60a5fa;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
+  /* Active insurance button */
+  .action-btn.active {
+    background: rgba(74, 222, 128, 0.2);
+    border-color: #4ade80;
+  }
+
+  /* Cooldown insurance button */
+  .action-btn.cooldown {
+    background: rgba(248, 113, 113, 0.1);
+    border-color: rgba(248, 113, 113, 0.3);
+  }
+
+  /* Hedge active button */
+  .action-btn.hedge-active {
+    background: rgba(96, 165, 250, 0.2);
+    border-color: #60a5fa;
+    animation: pulse 1.5s ease-in-out infinite;
   }
 
   /* Tooltip styles */

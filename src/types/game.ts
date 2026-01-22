@@ -1,4 +1,5 @@
 // Core game types for DEGEN ACADEMY
+// Competitive Economy v2.0
 
 export type RiskLevel = 'safe' | 'medium' | 'degen';
 
@@ -10,14 +11,20 @@ export interface Pool {
   riskLevel: RiskLevel;
   deposited: number;
   isRugged: boolean;
-  hasAudit: boolean;
+  hasAudit: boolean;      // Pool-specific audit shield
+  isLeveraged: boolean;   // 2x yields AND 2x loss
   isPumping: boolean;
   pumpEndTime: number | null;
 }
 
 export interface Items {
-  audits: number;
-  insurance: number;
+  // Insurance is now time-based with cooldown
+  insuranceActive: boolean;
+  insuranceEndTime: number | null;
+  insuranceCooldownEnd: number | null;
+
+  // Hedge mode is a toggle
+  hedgeMode: boolean;
 }
 
 export interface GameStats {
@@ -26,6 +33,10 @@ export interface GameStats {
   gamesPlayed: number;
   totalTimePlayed: number;
   fastestWin: number | null;
+  // New competitive stats
+  auditsUsed: number;
+  insurancesUsed: number;
+  leveragedWins: number;
 }
 
 export interface CurrentRun {
