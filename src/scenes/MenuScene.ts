@@ -79,9 +79,9 @@ export class MenuScene extends Phaser.Scene {
 
     // Info cards - positioned lower, closer to middle of remaining space
     const cardY = currentY + 80;
-    this.createInfoCard(width / 2 - 200, cardY, '💰', 'Start: $10,000', 'Your initial funding');
-    this.createInfoCard(width / 2, cardY, '🎯', 'Goal: $1,000,000', 'Reach to graduate');
-    this.createInfoCard(width / 2 + 200, cardY, '⏱️', 'Halving: 5 min', 'Yields cut 50%');
+    this.createInfoCard(width / 2 - 200, cardY, 'icon-start', 'Start: $10,000', 'Your initial funding');
+    this.createInfoCard(width / 2, cardY, 'icon-goal', 'Goal: $1,000,000', 'Reach to graduate');
+    this.createInfoCard(width / 2 + 200, cardY, 'icon-halving', 'Halving: 5 min', 'Yields cut 50%');
 
     // === BOTTOM SECTION ===
     // Ralph quote section - positioned from bottom
@@ -184,14 +184,17 @@ export class MenuScene extends Phaser.Scene {
     return container;
   }
 
-  private createInfoCard(x: number, y: number, emoji: string, title: string, desc: string): void {
+  private createInfoCard(x: number, y: number, iconKey: string, title: string, desc: string): void {
     const card = this.add.graphics();
     card.fillStyle(0x1a1a2e, 0.9);
     card.fillRoundedRect(x - 80, y - 40, 160, 80, 10);
     card.lineStyle(1, 0x3d3d5c, 1);
     card.strokeRoundedRect(x - 80, y - 40, 160, 80, 10);
 
-    this.add.text(x, y - 15, emoji, { fontSize: '24px' }).setOrigin(0.5);
+    // Use image sprite instead of emoji text
+    const icon = this.add.image(x, y - 15, iconKey);
+    icon.setOrigin(0.5);
+    icon.setDisplaySize(32, 32);
     this.add.text(x, y + 10, title, {
       fontFamily: 'JetBrains Mono, monospace',
       fontSize: '14px',

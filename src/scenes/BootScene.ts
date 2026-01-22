@@ -75,6 +75,11 @@ export class BootScene extends Phaser.Scene {
 
     // Load actual game assets
     this.load.image('lab-bg', '/assets/lab-background.png');
+
+    // Load custom icons
+    this.load.image('icon-start', '/assets/icon-start.png');
+    this.load.image('icon-goal', '/assets/icon-goal.png');
+    this.load.image('icon-halving', '/assets/icon-halving.png');
   }
 
   create(): void {
