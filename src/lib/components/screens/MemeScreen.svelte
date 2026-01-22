@@ -150,36 +150,25 @@
       <div style="display: flex; gap: 16px;">
         <!-- Token Panel (like Ralph panel) -->
         <div class="ralph-panel" style="flex: 1; display: flex; align-items: center; justify-content: space-between;">
-          <!-- Token Info (left) -->
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <span style="font-size: 32px;">{token.emoji}</span>
-            <div>
-              <h2 class="font-chalk text-white" style="font-size: 18px; line-height: 1.2;">{token.name}</h2>
-              <span class="font-mono" style="font-size: 12px; color: rgba(255,255,255,0.5);">{token.ticker}</span>
-            </div>
+          <!-- Token Info (left) - inline like Ralph panel -->
+          <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+            <span style="font-size: 20px;">{token.emoji}</span>
+            <span class="font-chalk text-white" style="font-size: 17px;">{token.name}</span>
+            <span class="font-mono" style="font-size: 13px; color: rgba(255,255,255,0.5);">{token.ticker}</span>
+            {#if position > 0}
+              <span style="color: rgba(255,255,255,0.3);">•</span>
+              <span style="font-size: 12px; color: rgba(255,255,255,0.5);">Pos:</span>
+              <span class="font-mono font-bold" style="font-size: 13px; color: #fff;">{formatMoney(position)}</span>
+              <span style="font-size: 12px; color: rgba(255,255,255,0.5);">P&L:</span>
+              <span class="font-mono font-bold" style="font-size: 13px; color: {pnlColor};">{pnl >= 0 ? '+' : ''}{formatMoney(pnl)}</span>
+            {/if}
           </div>
-
-          <!-- Position Info (center) -->
-          {#if position > 0}
-            <div style="display: flex; align-items: center; gap: 16px;">
-              <div style="text-align: center;">
-                <span style="font-size: 9px; color: rgba(255,255,255,0.5); text-transform: uppercase;">Position</span>
-                <p class="font-mono font-bold" style="font-size: 14px; color: #fff;">{formatMoney(position)}</p>
-              </div>
-              <div style="text-align: center;">
-                <span style="font-size: 9px; color: rgba(255,255,255,0.5); text-transform: uppercase;">P&L</span>
-                <p class="font-mono font-bold" style="font-size: 14px; color: {pnlColor};">
-                  {pnl >= 0 ? '+' : ''}{formatMoney(pnl)}
-                </p>
-              </div>
-            </div>
-          {/if}
 
           <!-- Watching Time (right) -->
           {#if playing}
-            <div style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: rgba(139, 92, 246, 0.2); border-radius: 6px;">
-              <span style="font-size: 9px; color: rgba(255,255,255,0.5); text-transform: uppercase;">Watching</span>
-              <span class="font-mono font-bold" style="font-size: 14px; color: #a78bfa;">{90 - time}s</span>
+            <div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(255,255,255,0.08); border-radius: 6px; margin-left: 16px;">
+              <span style="font-size: 11px; color: rgba(255,255,255,0.5);">Watching</span>
+              <span class="font-mono font-bold" style="font-size: 13px; color: #a78bfa;">{90 - time}s</span>
             </div>
           {/if}
         </div>
