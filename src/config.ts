@@ -29,7 +29,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   render: {
     pixelArt: false,
     antialias: true,
-    roundPixels: true,  // Fix text blur by snapping to integer pixels
+    roundPixels: false,  // Keep false for smooth high-res image scaling
   },
   dom: {
     createContainer: true,
