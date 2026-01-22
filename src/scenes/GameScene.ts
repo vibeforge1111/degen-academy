@@ -92,13 +92,13 @@ export class GameScene extends Phaser.Scene {
 
   // Layout constants for proper positioning
   private readonly LAYOUT = {
-    padding: 12,
-    topBarHeight: 60,
-    bottomBarHeight: 65,
-    ralphChatHeight: 45,
-    cardWidth: 200,
-    cardHeight: 155,
-    cardGap: 12,
+    padding: 16,
+    topBarHeight: 55,
+    bottomBarHeight: 60,
+    ralphChatHeight: 50,
+    cardWidth: 195,
+    cardHeight: 165,
+    cardGap: 14,
   };
 
   private createUI(): void {
@@ -318,36 +318,36 @@ export class GameScene extends Phaser.Scene {
       color: '#71717A',
     }).setOrigin(0.5);
 
-    // Deposited section (compact)
+    // Deposited section
     const depositedBg = this.add.graphics();
     depositedBg.fillStyle(COLORS.surface, 1);
-    depositedBg.fillRoundedRect(-w / 2 + 8, 26, w - 16, 28, 5);
+    depositedBg.fillRoundedRect(-w / 2 + 10, 28, w - 20, 32, 6);
 
-    const depositedText = this.add.text(-w / 2 + 14, 34, '$0.00', {
+    const depositedText = this.add.text(-w / 2 + 18, 38, '$0.00', {
       fontFamily: 'JetBrains Mono, monospace',
-      fontSize: '13px',
+      fontSize: '14px',
       color: '#10B981',
       fontStyle: 'bold',
     });
 
-    const yieldText = this.add.text(w / 2 - 14, 34, '+$0.00/s', {
+    const yieldText = this.add.text(w / 2 - 18, 38, '+$0.00/s', {
       fontFamily: 'JetBrains Mono, monospace',
-      fontSize: '9px',
+      fontSize: '10px',
       color: '#71717A',
     }).setOrigin(1, 0);
 
-    // Action buttons (compact)
-    const btnY = h / 2 - 18;
-    const btnWidth = (w - 24) / 2;
-    const btnHeight = 26;
+    // Action buttons - bigger and more prominent
+    const btnY = h / 2 - 22;
+    const btnWidth = (w - 20) / 2;
+    const btnHeight = 32;
 
     // Deposit button
-    const depositBtn = this.createCardButton(-w / 4 + 1, btnY, btnWidth - 4, btnHeight, '+$1K', COLORS.primary, () => {
+    const depositBtn = this.createCardButton(-w / 4, btnY, btnWidth - 6, btnHeight, '+$1K', COLORS.primary, () => {
       this.deposit(pool.id, 1000);
     });
 
     // Withdraw button
-    const withdrawBtn = this.createCardButton(w / 4 - 1, btnY, btnWidth - 4, btnHeight, 'OUT', COLORS.surface, () => {
+    const withdrawBtn = this.createCardButton(w / 4, btnY, btnWidth - 6, btnHeight, 'OUT', COLORS.surface, () => {
       this.withdrawAll(pool.id);
     });
 
@@ -370,15 +370,15 @@ export class GameScene extends Phaser.Scene {
   private createCardButton(x: number, y: number, w: number, h: number, text: string, color: number, callback: () => void): Phaser.GameObjects.GameObject[] {
     const bg = this.add.graphics();
     bg.fillStyle(color, 1);
-    bg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 6);
+    bg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 8);
 
     // Create invisible hitbox for interaction
     const hitbox = this.add.rectangle(x, y, w, h, 0x000000, 0);
     hitbox.setInteractive({ useHandCursor: true });
 
     const label = this.add.text(x, y, text, {
-      fontFamily: 'Inter, sans-serif',
-      fontSize: '12px',
+      fontFamily: 'JetBrains Mono, monospace',
+      fontSize: '14px',
       color: '#FFFFFF',
       fontStyle: 'bold',
     }).setOrigin(0.5);
@@ -386,19 +386,19 @@ export class GameScene extends Phaser.Scene {
     hitbox.on('pointerover', () => {
       bg.clear();
       bg.fillStyle(color === COLORS.primary ? COLORS.primaryHover : COLORS.surfaceHover, 1);
-      bg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 6);
+      bg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 8);
     });
 
     hitbox.on('pointerout', () => {
       bg.clear();
       bg.fillStyle(color, 1);
-      bg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 6);
+      bg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 8);
     });
 
     hitbox.on('pointerdown', () => {
       bg.clear();
       bg.fillStyle(color === COLORS.primary ? 0x6d28d9 : COLORS.border, 1);
-      bg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 6);
+      bg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 8);
     });
 
     hitbox.on('pointerup', callback);
@@ -416,27 +416,35 @@ export class GameScene extends Phaser.Scene {
 
     const chatBg = this.add.graphics();
     chatBg.fillStyle(COLORS.bgLight, 0.95);
-    chatBg.fillRoundedRect(-chatWidth / 2, -chatHeight / 2, chatWidth, chatHeight, 8);
+    chatBg.fillRoundedRect(-chatWidth / 2, -chatHeight / 2, chatWidth, chatHeight, 10);
     chatBg.lineStyle(1, COLORS.border, 1);
-    chatBg.strokeRoundedRect(-chatWidth / 2, -chatHeight / 2, chatWidth, chatHeight, 8);
+    chatBg.strokeRoundedRect(-chatWidth / 2, -chatHeight / 2, chatWidth, chatHeight, 10);
 
     // Ralph avatar
     const avatarBg = this.add.graphics();
-    avatarBg.fillStyle(COLORS.primary, 0.2);
-    avatarBg.fillCircle(-chatWidth / 2 + 28, 0, 16);
+    avatarBg.fillStyle(COLORS.primary, 0.25);
+    avatarBg.fillCircle(-chatWidth / 2 + 32, 0, 18);
 
-    const avatar = this.add.text(-chatWidth / 2 + 28, 0, '🐕', { fontSize: '18px' }).setOrigin(0.5);
+    const avatar = this.add.text(-chatWidth / 2 + 32, 0, '🐕', { fontSize: '22px' }).setOrigin(0.5);
+
+    // Ralph label
+    const ralphLabel = this.add.text(-chatWidth / 2 + 60, -10, 'RALPH SAYS:', {
+      fontFamily: 'Inter, sans-serif',
+      fontSize: '9px',
+      color: '#8B5CF6',
+      fontStyle: 'bold',
+    });
 
     // Ralph text
-    this.ralphText = this.add.text(-chatWidth / 2 + 55, 0, '"..."', {
+    this.ralphText = this.add.text(-chatWidth / 2 + 60, 6, '"..."', {
       fontFamily: 'Inter, sans-serif',
       fontSize: '13px',
       color: '#A1A1AA',
       fontStyle: 'italic',
-      wordWrap: { width: chatWidth - 80 },
-    }).setOrigin(0, 0.5);
+      wordWrap: { width: chatWidth - 100 },
+    }).setOrigin(0, 0);
 
-    this.ralphContainer.add([chatBg, avatarBg, avatar, this.ralphText]);
+    this.ralphContainer.add([chatBg, avatarBg, avatar, ralphLabel, this.ralphText]);
   }
 
   private createBottomBar(barTopY: number): void {
