@@ -352,19 +352,19 @@
   .ralph-panel {
     padding: 10px 14px;
     background: #2d2d3a;
-    border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.08);
   }
 
   /* Stats panel (same as GameScreen) */
   .stats-panel {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
     padding: 10px 16px;
     background: #2d2d3a;
-    border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.08);
   }
 
   /* Main Grid Layout */
