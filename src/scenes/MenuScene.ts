@@ -78,10 +78,11 @@ export class MenuScene extends Phaser.Scene {
     currentY += 100;
 
     // Info cards - positioned lower, closer to middle of remaining space
-    const cardY = currentY + 80;
-    this.createInfoCard(width / 2 - 200, cardY, 'icon-start', 'Start: $10,000', 'Your initial funding');
+    const cardY = currentY + 100;
+    const cardSpacing = 220;
+    this.createInfoCard(width / 2 - cardSpacing, cardY, 'icon-start', 'Start: $10,000', 'Your initial funding');
     this.createInfoCard(width / 2, cardY, 'icon-goal', 'Goal: $1,000,000', 'Reach to graduate');
-    this.createInfoCard(width / 2 + 200, cardY, 'icon-halving', 'Halving: 5 min', 'Yields cut 50%');
+    this.createInfoCard(width / 2 + cardSpacing, cardY, 'icon-halving', 'Halving: 5 min', 'Yields cut 50%');
 
     // === BOTTOM SECTION ===
     // Ralph quote section - positioned from bottom
@@ -185,23 +186,28 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private createInfoCard(x: number, y: number, iconKey: string, title: string, desc: string): void {
+    // Use integer positions for crisp text
+    const px = Math.round(x);
+    const py = Math.round(y);
+
     const card = this.add.graphics();
     card.fillStyle(0x1a1a2e, 0.9);
-    card.fillRoundedRect(x - 85, y - 50, 170, 100, 10);
+    card.fillRoundedRect(px - 95, py - 70, 190, 140, 12);
     card.lineStyle(1, 0x3d3d5c, 1);
-    card.strokeRoundedRect(x - 85, y - 50, 170, 100, 10);
+    card.strokeRoundedRect(px - 95, py - 70, 190, 140, 12);
 
-    // Use image sprite instead of emoji text
-    const icon = this.add.image(x, y - 18, iconKey);
+    // Use image sprite - much bigger icons
+    const icon = this.add.image(px, py - 25, iconKey);
     icon.setOrigin(0.5);
-    icon.setDisplaySize(48, 48);
-    this.add.text(x, y + 18, title, {
+    icon.setDisplaySize(72, 72);
+
+    this.add.text(px, py + 30, title, {
       fontFamily: 'JetBrains Mono, monospace',
       fontSize: '14px',
       color: '#FFFFFF',
       fontStyle: 'bold',
     }).setOrigin(0.5);
-    this.add.text(x, y + 36, desc, {
+    this.add.text(px, py + 50, desc, {
       fontFamily: 'Inter, sans-serif',
       fontSize: '11px',
       color: '#71717A',
