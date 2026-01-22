@@ -17,6 +17,19 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
+    min: {
+      width: 800,
+      height: 450,
+    },
+    max: {
+      width: 1920,
+      height: 1080,
+    },
+  },
+  render: {
+    pixelArt: false,
+    antialias: true,
+    roundPixels: false,
   },
   dom: {
     createContainer: true,

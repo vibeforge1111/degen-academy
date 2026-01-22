@@ -1,4 +1,4 @@
-// Main Game Scene for DEGEN ACADEMY
+// Main Game Scene for DEGEN ACADEMY - UI Overhauled
 
 import Phaser from 'phaser';
 import { GAME_CONSTANTS } from '../data/constants.ts';
@@ -6,6 +6,27 @@ import { createInitialPools, getRiskEmoji, getRiskLabel } from '../data/pools.ts
 import { getRandomQuote } from '../data/ralph-quotes.ts';
 import { saveManager } from '../systems/SaveManager.ts';
 import type { Pool, GameState, GameEvent, EventType } from '../types/game.ts';
+
+// Color palette
+const COLORS = {
+  bgDark: 0x0a0a14,
+  bgMedium: 0x12121f,
+  bgLight: 0x1a1a2e,
+  surface: 0x252540,
+  surfaceHover: 0x2f2f50,
+  border: 0x3d3d5c,
+  borderLight: 0x4d4d6c,
+  primary: 0x8b5cf6,
+  primaryHover: 0x7c3aed,
+  secondary: 0xf59e0b,
+  success: 0x10b981,
+  danger: 0xef4444,
+  warning: 0xf59e0b,
+  info: 0x3b82f6,
+  textPrimary: 0xffffff,
+  textSecondary: 0xa1a1aa,
+  textMuted: 0x71717a,
+};
 
 export class GameScene extends Phaser.Scene {
   private gameState!: GameState;
@@ -15,13 +36,19 @@ export class GameScene extends Phaser.Scene {
 
   // UI Elements
   private portfolioText!: Phaser.GameObjects.Text;
+  private portfolioChange!: Phaser.GameObjects.Text;
   private halvingText!: Phaser.GameObjects.Text;
   private halvingBar!: Phaser.GameObjects.Rectangle;
+  private halvingBarBg!: Phaser.GameObjects.Rectangle;
+  private multiplierText!: Phaser.GameObjects.Text;
   private poolCards: Map<string, PoolCardUI> = new Map();
   private ralphText!: Phaser.GameObjects.Text;
+  private ralphContainer!: Phaser.GameObjects.Container;
   private auditsText!: Phaser.GameObjects.Text;
   private insuranceText!: Phaser.GameObjects.Text;
+  private gasText!: Phaser.GameObjects.Text;
   private toastContainer!: Phaser.GameObjects.Container;
+  private lastPortfolio: number = 0;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -32,10 +59,10 @@ export class GameScene extends Phaser.Scene {
     this.createUI();
     this.resetRNGInterval();
     this.setRalphQuote('welcome');
+    this.lastPortfolio = this.gameState.portfolio;
   }
 
   private initializeGameState(): void {
-    // Load saved stats for lifetime tracking
     const savedStats = saveManager.getStats();
 
     this.gameState = {
@@ -54,23 +81,24 @@ export class GameScene extends Phaser.Scene {
         halvingCount: 0,
       },
       stats: {
-        rugsEaten: 0, // Reset for this run
+        rugsEaten: 0,
         highestPortfolio: GAME_CONSTANTS.STARTING_PORTFOLIO,
         gamesPlayed: savedStats.gamesPlayed,
         totalTimePlayed: savedStats.totalTimePlayed,
         fastestWin: savedStats.fastestWin,
       },
     };
-
-    console.log('[GameScene] Loaded stats - Games played:', savedStats.gamesPlayed);
   }
 
   private createUI(): void {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
 
-    // Background
-    this.add.rectangle(width / 2, height / 2, width, height, 0x0F0F1A);
+    // Background with subtle gradient effect
+    this.add.rectangle(width / 2, height / 2, width, height, COLORS.bgDark);
+
+    // Add subtle grid pattern
+    this.createBackgroundPattern();
 
     // Top bar
     this.createTopBar();
@@ -81,73 +109,132 @@ export class GameScene extends Phaser.Scene {
     // Ralph chat
     this.createRalphChat();
 
-    // Bottom bar (items)
+    // Bottom bar
     this.createBottomBar();
 
     // Toast container
-    this.toastContainer = this.add.container(width - 20, 80);
+    this.toastContainer = this.add.container(width - 20, 100);
+  }
+
+  private createBackgroundPattern(): void {
+    const width = this.cameras.main.width;
+    const height = this.cameras.main.height;
+    const graphics = this.add.graphics();
+
+    graphics.lineStyle(1, 0x1a1a2e, 0.3);
+
+    // Vertical lines
+    for (let x = 0; x < width; x += 40) {
+      graphics.lineBetween(x, 0, x, height);
+    }
+
+    // Horizontal lines
+    for (let y = 0; y < height; y += 40) {
+      graphics.lineBetween(0, y, width, y);
+    }
   }
 
   private createTopBar(): void {
     const width = this.cameras.main.width;
 
-    // Top bar background
-    this.add.rectangle(width / 2, 35, width, 70, 0x1A1A2E);
+    // Top bar background with gradient effect
+    const topBarBg = this.add.graphics();
+    topBarBg.fillStyle(COLORS.bgMedium, 1);
+    topBarBg.fillRoundedRect(10, 10, width - 20, 70, 12);
+    topBarBg.lineStyle(1, COLORS.border, 1);
+    topBarBg.strokeRoundedRect(10, 10, width - 20, 70, 12);
 
-    // Title
-    this.add.text(20, 35, '🎓 DEGEN ACADEMY', {
+    // Logo/Title
+    this.add.text(30, 28, '🎓', { fontSize: '28px' });
+    this.add.text(65, 30, 'DEGEN ACADEMY', {
       fontFamily: 'Space Grotesk, sans-serif',
-      fontSize: '24px',
+      fontSize: '22px',
       color: '#8B5CF6',
       fontStyle: 'bold',
-    }).setOrigin(0, 0.5);
-
-    // Portfolio
-    this.add.text(width / 2 - 100, 25, '💰 Portfolio', {
+    });
+    this.add.text(65, 52, 'Learn DeFi by getting rekt', {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '14px',
-      color: '#A1A1AA',
-    }).setOrigin(0, 0.5);
+      fontSize: '11px',
+      color: '#71717A',
+    });
 
-    this.portfolioText = this.add.text(width / 2 - 100, 45, '$10,000.00', {
+    // Portfolio section (centered)
+    const portfolioX = width / 2;
+
+    this.add.text(portfolioX, 22, '💰 PORTFOLIO', {
+      fontFamily: 'Inter, sans-serif',
+      fontSize: '11px',
+      color: '#A1A1AA',
+      fontStyle: 'bold',
+    }).setOrigin(0.5, 0);
+
+    this.portfolioText = this.add.text(portfolioX, 42, '$10,000.00', {
       fontFamily: 'JetBrains Mono, monospace',
-      fontSize: '28px',
+      fontSize: '26px',
       color: '#FFFFFF',
       fontStyle: 'bold',
-    }).setOrigin(0, 0.5);
+    }).setOrigin(0.5, 0);
 
-    // Halving timer
-    this.add.text(width - 200, 20, '⏱️ HALVING', {
-      fontFamily: 'Inter, sans-serif',
-      fontSize: '14px',
-      color: '#A1A1AA',
-    }).setOrigin(0, 0.5);
-
-    this.halvingText = this.add.text(width - 200, 40, '5:00', {
+    this.portfolioChange = this.add.text(portfolioX + 100, 48, '+$0.00/s', {
       fontFamily: 'JetBrains Mono, monospace',
-      fontSize: '24px',
+      fontSize: '12px',
+      color: '#10B981',
+    }).setOrigin(0, 0.5);
+
+    // Halving section (right side)
+    const halvingX = width - 180;
+
+    // Halving container
+    const halvingBg = this.add.graphics();
+    halvingBg.fillStyle(COLORS.surface, 1);
+    halvingBg.fillRoundedRect(halvingX - 10, 18, 160, 54, 8);
+
+    this.add.text(halvingX, 25, '⏱️ NEXT HALVING', {
+      fontFamily: 'Inter, sans-serif',
+      fontSize: '10px',
+      color: '#A1A1AA',
+      fontStyle: 'bold',
+    });
+
+    this.halvingText = this.add.text(halvingX, 42, '5:00', {
+      fontFamily: 'JetBrains Mono, monospace',
+      fontSize: '22px',
       color: '#F59E0B',
       fontStyle: 'bold',
-    }).setOrigin(0, 0.5);
+    });
 
-    // Halving progress bar
-    this.add.rectangle(width - 100, 55, 80, 8, 0x3D3D5C).setOrigin(0, 0.5);
-    this.halvingBar = this.add.rectangle(width - 100, 55, 80, 8, 0xF59E0B).setOrigin(0, 0.5);
+    // Progress bar background
+    this.halvingBarBg = this.add.rectangle(halvingX + 75, 58, 60, 6, COLORS.border);
+    this.halvingBarBg.setOrigin(0, 0.5);
+
+    this.halvingBar = this.add.rectangle(halvingX + 75, 58, 0, 6, COLORS.secondary);
+    this.halvingBar.setOrigin(0, 0.5);
+
+    // Multiplier badge
+    this.multiplierText = this.add.text(halvingX + 140, 42, '1x', {
+      fontFamily: 'JetBrains Mono, monospace',
+      fontSize: '14px',
+      color: '#F59E0B',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
   }
 
   private createPoolGrid(): void {
-    const startX = 120;
-    const startY = 180;
-    const cardWidth = 180;
-    const cardHeight = 200;
-    const gapX = 200;
-    const gapY = 220;
+    const width = this.cameras.main.width;
+    const startY = 100;
+    const cardWidth = 195;
+    const cardHeight = 180;
+    const gap = 15;
+
+    // Calculate total width of 3 cards + gaps
+    const totalWidth = (cardWidth * 3) + (gap * 2);
+    const startX = (width - totalWidth) / 2 + cardWidth / 2;
 
     this.gameState.pools.forEach((pool, index) => {
       const col = index % 3;
       const row = Math.floor(index / 3);
-      const x = startX + col * gapX;
-      const y = startY + row * gapY;
+      const x = startX + col * (cardWidth + gap);
+      const y = startY + row * (cardHeight + gap);
 
       const card = this.createPoolCard(pool, x, y, cardWidth, cardHeight);
       this.poolCards.set(pool.id, card);
@@ -157,78 +244,110 @@ export class GameScene extends Phaser.Scene {
   private createPoolCard(pool: Pool, x: number, y: number, w: number, h: number): PoolCardUI {
     const container = this.add.container(x, y);
 
-    // Card background
-    const bg = this.add.rectangle(0, 0, w, h, 0x1E1E32);
-    bg.setStrokeStyle(1, 0x3D3D5C);
+    // Card background with rounded corners
+    const bg = this.add.graphics();
+    bg.fillStyle(COLORS.bgLight, 1);
+    bg.fillRoundedRect(-w / 2, -h / 2, w, h, 12);
+    bg.lineStyle(1, COLORS.border, 1);
+    bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 12);
 
-    // Pool name with risk indicator
+    // Risk indicator stripe at top
+    const riskColor = pool.riskLevel === 'safe' ? COLORS.success :
+                      pool.riskLevel === 'medium' ? COLORS.warning : COLORS.danger;
+    const stripe = this.add.graphics();
+    stripe.fillStyle(riskColor, 1);
+    stripe.fillRoundedRect(-w / 2, -h / 2, w, 4, { tl: 12, tr: 12, bl: 0, br: 0 });
+
+    // Pool name with emoji
     const riskEmoji = getRiskEmoji(pool.riskLevel);
-    const nameText = this.add.text(0, -h / 2 + 25, `${riskEmoji} ${pool.name}`, {
+    const nameText = this.add.text(0, -h / 2 + 22, `${riskEmoji} ${pool.name}`, {
       fontFamily: 'Inter, sans-serif',
       fontSize: '14px',
       color: '#FFFFFF',
       fontStyle: 'bold',
     }).setOrigin(0.5);
 
-    // Risk label
-    const riskColor = pool.riskLevel === 'safe' ? '#10B981' : pool.riskLevel === 'medium' ? '#F59E0B' : '#EF4444';
-    const riskText = this.add.text(0, -h / 2 + 50, getRiskLabel(pool.riskLevel), {
+    // Risk label badge
+    const riskLabel = getRiskLabel(pool.riskLevel);
+    const riskLabelColor = pool.riskLevel === 'safe' ? '#10B981' :
+                           pool.riskLevel === 'medium' ? '#F59E0B' : '#EF4444';
+    const riskText = this.add.text(0, -h / 2 + 42, riskLabel.toUpperCase(), {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '12px',
-      color: riskColor,
+      fontSize: '9px',
+      color: riskLabelColor,
+      fontStyle: 'bold',
     }).setOrigin(0.5);
 
-    // APY
+    // APY - big and bold
     const apyText = this.add.text(0, -10, `${pool.apy}%`, {
       fontFamily: 'JetBrains Mono, monospace',
-      fontSize: '32px',
+      fontSize: '36px',
       color: '#FFFFFF',
       fontStyle: 'bold',
     }).setOrigin(0.5);
 
-    this.add.text(0, 20, 'APY', {
-      fontFamily: 'Inter, sans-serif',
-      fontSize: '14px',
-      color: '#A1A1AA',
-    }).setOrigin(0.5);
-
-    // Deposited amount
-    const depositedText = this.add.text(0, 55, '$0.00', {
-      fontFamily: 'JetBrains Mono, monospace',
-      fontSize: '18px',
-      color: '#10B981',
-    }).setOrigin(0.5);
-
-    // Yield per second
-    const yieldText = this.add.text(0, 75, '+$0.00/sec', {
+    this.add.text(0, 22, 'APY', {
       fontFamily: 'Inter, sans-serif',
       fontSize: '12px',
-      color: '#A1A1AA',
+      color: '#71717A',
     }).setOrigin(0.5);
 
-    // Buttons - Deposit $1k and Withdraw All
-    const depositBtn = this.createSmallButton(-45, h / 2 - 30, '+$1K', 0x8B5CF6, () => {
+    // Deposited section
+    const depositedBg = this.add.graphics();
+    depositedBg.fillStyle(COLORS.surface, 1);
+    depositedBg.fillRoundedRect(-w / 2 + 10, 40, w - 20, 36, 6);
+
+    const depositedText = this.add.text(-w / 2 + 20, 50, '$0.00', {
+      fontFamily: 'JetBrains Mono, monospace',
+      fontSize: '16px',
+      color: '#10B981',
+      fontStyle: 'bold',
+    });
+
+    const yieldText = this.add.text(w / 2 - 20, 50, '+$0.00/s', {
+      fontFamily: 'JetBrains Mono, monospace',
+      fontSize: '11px',
+      color: '#71717A',
+    }).setOrigin(1, 0);
+
+    // Action buttons
+    const btnY = h / 2 - 25;
+    const btnWidth = (w - 30) / 2;
+
+    // Deposit button
+    const depositBtn = this.createCardButton(-w / 4 + 2, btnY, btnWidth - 5, 32, '+$1K', COLORS.primary, () => {
       this.deposit(pool.id, 1000);
     });
 
-    const withdrawBtn = this.createSmallButton(45, h / 2 - 30, 'OUT', 0x3D3D5C, () => {
+    // Withdraw button
+    const withdrawBtn = this.createCardButton(w / 4 - 2, btnY, btnWidth - 5, 32, 'OUT', COLORS.surface, () => {
       this.withdrawAll(pool.id);
     });
 
-    container.add([bg, nameText, riskText, apyText, depositedText, yieldText, ...depositBtn, ...withdrawBtn]);
+    container.add([bg, stripe, nameText, riskText, apyText, depositedBg, depositedText, yieldText, ...depositBtn, ...withdrawBtn]);
+
+    // Create a rectangle for the card background that can be colored
+    const cardBg = this.add.rectangle(x, y, w, h);
+    cardBg.setFillStyle(0x000000, 0);
 
     return {
       container,
-      bg,
+      bg: cardBg,
       depositedText,
       yieldText,
       apyText,
+      graphics: bg,
     };
   }
 
-  private createSmallButton(x: number, y: number, text: string, color: number, callback: () => void): Phaser.GameObjects.GameObject[] {
-    const bg = this.add.rectangle(x, y, 70, 30, color);
-    bg.setInteractive({ useHandCursor: true });
+  private createCardButton(x: number, y: number, w: number, h: number, text: string, color: number, callback: () => void): Phaser.GameObjects.GameObject[] {
+    const bg = this.add.graphics();
+    bg.fillStyle(color, 1);
+    bg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 6);
+
+    // Create invisible hitbox for interaction
+    const hitbox = this.add.rectangle(x, y, w, h, 0x000000, 0);
+    hitbox.setInteractive({ useHandCursor: true });
 
     const label = this.add.text(x, y, text, {
       fontFamily: 'Inter, sans-serif',
@@ -237,109 +356,198 @@ export class GameScene extends Phaser.Scene {
       fontStyle: 'bold',
     }).setOrigin(0.5);
 
-    bg.on('pointerover', () => bg.setAlpha(0.8));
-    bg.on('pointerout', () => bg.setAlpha(1));
-    bg.on('pointerup', callback);
+    hitbox.on('pointerover', () => {
+      bg.clear();
+      bg.fillStyle(color === COLORS.primary ? COLORS.primaryHover : COLORS.surfaceHover, 1);
+      bg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 6);
+    });
 
-    return [bg, label];
+    hitbox.on('pointerout', () => {
+      bg.clear();
+      bg.fillStyle(color, 1);
+      bg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 6);
+    });
+
+    hitbox.on('pointerdown', () => {
+      bg.clear();
+      bg.fillStyle(color === COLORS.primary ? 0x6d28d9 : COLORS.border, 1);
+      bg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 6);
+    });
+
+    hitbox.on('pointerup', callback);
+
+    return [bg, hitbox, label];
   }
 
   private createRalphChat(): void {
     const width = this.cameras.main.width;
+    const y = 505;
 
-    // Chat background
-    this.add.rectangle(width / 2, 605, width - 40, 50, 0x1E1E32).setStrokeStyle(1, 0x3D3D5C);
+    // Chat container background
+    this.ralphContainer = this.add.container(width / 2, y);
 
-    // Ralph emoji
-    this.add.text(40, 605, '🐕', { fontSize: '24px' }).setOrigin(0.5);
+    const chatBg = this.add.graphics();
+    chatBg.fillStyle(COLORS.bgLight, 1);
+    chatBg.fillRoundedRect(-width / 2 + 20, -25, width - 40, 50, 10);
+    chatBg.lineStyle(1, COLORS.border, 1);
+    chatBg.strokeRoundedRect(-width / 2 + 20, -25, width - 40, 50, 10);
+
+    // Ralph avatar
+    const avatarBg = this.add.graphics();
+    avatarBg.fillStyle(COLORS.primary, 0.2);
+    avatarBg.fillCircle(-width / 2 + 50, 0, 18);
+
+    const avatar = this.add.text(-width / 2 + 50, 0, '🐕', { fontSize: '20px' }).setOrigin(0.5);
 
     // Ralph text
-    this.ralphText = this.add.text(70, 605, 'Ralph: "..."', {
+    this.ralphText = this.add.text(-width / 2 + 80, 0, 'Ralph: "..."', {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '16px',
+      fontSize: '14px',
       color: '#A1A1AA',
       fontStyle: 'italic',
+      wordWrap: { width: width - 160 },
     }).setOrigin(0, 0.5);
+
+    this.ralphContainer.add([chatBg, avatarBg, avatar, this.ralphText]);
   }
 
   private createBottomBar(): void {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
+    const barY = height - 45;
 
     // Bottom bar background
-    this.add.rectangle(width / 2, height - 35, width, 70, 0x1A1A2E);
+    const bottomBg = this.add.graphics();
+    bottomBg.fillStyle(COLORS.bgMedium, 1);
+    bottomBg.fillRoundedRect(10, height - 80, width - 20, 70, 12);
+    bottomBg.lineStyle(1, COLORS.border, 1);
+    bottomBg.strokeRoundedRect(10, height - 80, width - 20, 70, 12);
 
-    // Audits
-    this.add.text(100, height - 45, '🛡️ Audits:', {
-      fontFamily: 'Inter, sans-serif',
-      fontSize: '14px',
-      color: '#A1A1AA',
-    }).setOrigin(0, 0.5);
+    // Items section
+    const itemStartX = 40;
 
-    this.auditsText = this.add.text(100, height - 25, '0', {
+    // Audit item
+    this.createItemSlot(itemStartX, barY, '🛡️', 'AUDIT', GAME_CONSTANTS.AUDIT_COST, () => this.buyAudit());
+    this.auditsText = this.add.text(itemStartX + 45, barY - 8, '0', {
       fontFamily: 'JetBrains Mono, monospace',
-      fontSize: '20px',
+      fontSize: '18px',
       color: '#FFFFFF',
+      fontStyle: 'bold',
     }).setOrigin(0, 0.5);
 
-    this.createSmallButton(200, height - 35, `$${GAME_CONSTANTS.AUDIT_COST}`, 0x8B5CF6, () => {
-      this.buyAudit();
+    // Insurance item
+    this.createItemSlot(itemStartX + 180, barY, '🏥', 'INSURANCE', GAME_CONSTANTS.INSURANCE_COST, () => this.buyInsurance());
+    this.insuranceText = this.add.text(itemStartX + 225, barY - 8, '0', {
+      fontFamily: 'JetBrains Mono, monospace',
+      fontSize: '18px',
+      color: '#FFFFFF',
+      fontStyle: 'bold',
+    }).setOrigin(0, 0.5);
+
+    // Gas indicator (right side)
+    const gasX = width - 150;
+
+    const gasBg = this.add.graphics();
+    gasBg.fillStyle(COLORS.surface, 1);
+    gasBg.fillRoundedRect(gasX - 10, barY - 25, 130, 50, 8);
+
+    this.add.text(gasX, barY - 12, '⛽ GAS PRICE', {
+      fontFamily: 'Inter, sans-serif',
+      fontSize: '10px',
+      color: '#71717A',
+      fontStyle: 'bold',
     });
 
-    // Insurance
-    this.add.text(350, height - 45, '🏥 Insurance:', {
-      fontFamily: 'Inter, sans-serif',
-      fontSize: '14px',
-      color: '#A1A1AA',
-    }).setOrigin(0, 0.5);
-
-    this.insuranceText = this.add.text(350, height - 25, '0', {
+    this.gasText = this.add.text(gasX, barY + 8, '1x NORMAL', {
       fontFamily: 'JetBrains Mono, monospace',
-      fontSize: '20px',
-      color: '#FFFFFF',
-    }).setOrigin(0, 0.5);
-
-    this.createSmallButton(460, height - 35, `$${GAME_CONSTANTS.INSURANCE_COST}`, 0x8B5CF6, () => {
-      this.buyInsurance();
+      fontSize: '14px',
+      color: '#10B981',
+      fontStyle: 'bold',
     });
 
-    // Gas indicator
-    this.add.text(width - 150, height - 35, '⛽ Gas: 1x', {
+    // Goal indicator (center)
+    const goalX = width / 2;
+    this.add.text(goalX, barY - 12, '🎯 GOAL', {
       fontFamily: 'Inter, sans-serif',
+      fontSize: '10px',
+      color: '#71717A',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+
+    this.add.text(goalX, barY + 8, '$1,000,000', {
+      fontFamily: 'JetBrains Mono, monospace',
       fontSize: '16px',
-      color: '#A1A1AA',
-    }).setOrigin(0, 0.5);
+      color: '#8B5CF6',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+  }
+
+  private createItemSlot(x: number, y: number, emoji: string, label: string, cost: number, callback: () => void): void {
+    // Item background
+    const itemBg = this.add.graphics();
+    itemBg.fillStyle(COLORS.surface, 1);
+    itemBg.fillRoundedRect(x - 10, y - 25, 150, 50, 8);
+
+    // Emoji
+    this.add.text(x, y - 5, emoji, { fontSize: '24px' }).setOrigin(0, 0.5);
+
+    // Label
+    this.add.text(x + 70, y - 15, label, {
+      fontFamily: 'Inter, sans-serif',
+      fontSize: '10px',
+      color: '#71717A',
+      fontStyle: 'bold',
+    }).setOrigin(0, 0);
+
+    // Buy button
+    const btnBg = this.add.graphics();
+    btnBg.fillStyle(COLORS.primary, 1);
+    btnBg.fillRoundedRect(x + 85, y - 5, 50, 24, 4);
+
+    const btnHitbox = this.add.rectangle(x + 110, y + 7, 50, 24, 0x000000, 0);
+    btnHitbox.setInteractive({ useHandCursor: true });
+
+    this.add.text(x + 110, y + 7, `$${cost}`, {
+      fontFamily: 'Inter, sans-serif',
+      fontSize: '11px',
+      color: '#FFFFFF',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+
+    btnHitbox.on('pointerover', () => {
+      btnBg.clear();
+      btnBg.fillStyle(COLORS.primaryHover, 1);
+      btnBg.fillRoundedRect(x + 85, y - 5, 50, 24, 4);
+    });
+
+    btnHitbox.on('pointerout', () => {
+      btnBg.clear();
+      btnBg.fillStyle(COLORS.primary, 1);
+      btnBg.fillRoundedRect(x + 85, y - 5, 50, 24, 4);
+    });
+
+    btnHitbox.on('pointerup', callback);
   }
 
   update(time: number, _delta: number): void {
     if (this.gameState.isGameOver || this.gameState.isVictory) return;
 
-    // Update elapsed time
     this.gameState.currentRun.elapsed = Date.now() - this.gameState.currentRun.startTime;
 
-    // Yield tick (every 1 second)
     if (time - this.lastYieldTick >= GAME_CONSTANTS.YIELD_TICK_MS) {
       this.tickYields();
       this.lastYieldTick = time;
     }
 
-    // RNG check
     if (time - this.lastRNGCheck >= this.nextRNGInterval) {
       this.checkRNGEvent();
       this.lastRNGCheck = time;
       this.resetRNGInterval();
     }
 
-    // Update halving timer
     this.updateHalvingTimer();
-
-    // Check temporary effects
     this.checkTemporaryEffects();
-
-    // Check win/lose conditions
     this.checkEndConditions();
-
-    // Update UI
     this.updateUI();
   }
 
@@ -349,13 +557,9 @@ export class GameScene extends Phaser.Scene {
     this.gameState.pools.forEach(pool => {
       if (pool.isRugged || pool.deposited <= 0) return;
 
-      // Calculate yield per second
       let yieldPerSecond = pool.deposited * (pool.apy / 100) / 365 / 24 / 60 / 60;
-
-      // Apply halving multiplier
       yieldPerSecond *= this.gameState.halvingMultiplier;
 
-      // Apply whale dump reduction if active
       if (this.gameState.whaleEndTime && Date.now() < this.gameState.whaleEndTime) {
         const reduction = this.gameState.items.insurance > 0
           ? GAME_CONSTANTS.WHALE_YIELD_REDUCTION * GAME_CONSTANTS.INSURANCE_DAMAGE_REDUCTION
@@ -363,7 +567,6 @@ export class GameScene extends Phaser.Scene {
         yieldPerSecond *= (1 - reduction);
       }
 
-      // Apply pump multiplier if active
       if (pool.isPumping && pool.pumpEndTime && Date.now() < pool.pumpEndTime) {
         yieldPerSecond *= GAME_CONSTANTS.PUMP_MULTIPLIER;
       }
@@ -373,7 +576,6 @@ export class GameScene extends Phaser.Scene {
 
     this.gameState.portfolio += totalYield;
 
-    // Update highest portfolio stat
     if (this.gameState.portfolio > this.gameState.stats.highestPortfolio) {
       this.gameState.stats.highestPortfolio = this.gameState.portfolio;
     }
@@ -385,26 +587,27 @@ export class GameScene extends Phaser.Scene {
     const timeInCurrentCycle = elapsed % halvingInterval;
     const timeRemaining = halvingInterval - timeInCurrentCycle;
 
-    // Check if we need to halve
     const expectedHalvings = Math.floor(elapsed / halvingInterval);
     if (expectedHalvings > this.gameState.currentRun.halvingCount) {
       this.executeHalving();
       this.gameState.currentRun.halvingCount = expectedHalvings;
     }
 
-    // Update halving display
     const minutes = Math.floor(timeRemaining / 60000);
     const seconds = Math.floor((timeRemaining % 60000) / 1000);
     this.halvingText.setText(`${minutes}:${seconds.toString().padStart(2, '0')}`);
 
-    // Update progress bar
     const progress = 1 - (timeRemaining / halvingInterval);
-    this.halvingBar.width = 80 * progress;
+    this.halvingBar.width = 60 * progress;
+
+    // Update multiplier display
+    const mult = this.gameState.halvingMultiplier;
+    this.multiplierText.setText(mult >= 1 ? `${mult}x` : `${mult.toFixed(2)}x`);
   }
 
   private executeHalving(): void {
     this.gameState.halvingMultiplier *= 0.5;
-    this.showToast('⏰ HALVING!', 'Yields cut by 50%!', 0xF59E0B);
+    this.showToast('⏰ HALVING!', 'All yields cut by 50%!', COLORS.secondary);
     this.setRalphQuote('halving');
   }
 
@@ -433,7 +636,6 @@ export class GameScene extends Phaser.Scene {
 
     if (!eventType) return null;
 
-    // Select target pool (favor high APY for rugs/exploits)
     const targetPool = this.selectTargetPool(eventType);
 
     return {
@@ -452,7 +654,6 @@ export class GameScene extends Phaser.Scene {
     if (activePools.length === 0) return null;
 
     if (eventType === 'rug' || eventType === 'exploit' || eventType === 'pump') {
-      // Weight by APY (higher APY = more likely target)
       const totalWeight = activePools.reduce((sum, p) => sum + p.apy, 0);
       const roll = Math.random() * totalWeight;
       let cumulative = 0;
@@ -468,21 +669,11 @@ export class GameScene extends Phaser.Scene {
 
   private executeEvent(event: GameEvent): void {
     switch (event.type) {
-      case 'rug':
-        this.executeRug(event);
-        break;
-      case 'exploit':
-        this.executeExploit(event);
-        break;
-      case 'whale':
-        this.executeWhaleDump(event);
-        break;
-      case 'gas':
-        this.executeGasSpike(event);
-        break;
-      case 'pump':
-        this.executePump(event);
-        break;
+      case 'rug': this.executeRug(event); break;
+      case 'exploit': this.executeExploit(event); break;
+      case 'whale': this.executeWhaleDump(); break;
+      case 'gas': this.executeGasSpike(); break;
+      case 'pump': this.executePump(event); break;
     }
   }
 
@@ -497,9 +688,9 @@ export class GameScene extends Phaser.Scene {
     pool.deposited = 0;
     this.gameState.stats.rugsEaten++;
 
-    this.showToast('🚨 RUG PULL!', `${pool.name} rugged! Lost $${lostAmount.toFixed(2)}`, 0xEF4444);
+    this.showToast('🚨 RUG PULL!', `${pool.name} rugged! Lost $${lostAmount.toFixed(2)}`, COLORS.danger);
     this.setRalphQuote('rug');
-    this.flashPoolCard(pool.id, 0xEF4444);
+    this.flashScreen(COLORS.danger);
   }
 
   private executeExploit(event: GameEvent): void {
@@ -508,10 +699,9 @@ export class GameScene extends Phaser.Scene {
     const pool = this.gameState.pools.find(p => p.id === event.targetPoolId);
     if (!pool || pool.isRugged) return;
 
-    // Check if audit blocks it
     if (this.gameState.items.audits > 0) {
       this.gameState.items.audits--;
-      this.showToast('🛡️ EXPLOIT BLOCKED!', `Audit saved ${pool.name}!`, 0x10B981);
+      this.showToast('🛡️ EXPLOIT BLOCKED!', `Audit saved ${pool.name}!`, COLORS.success);
       this.setRalphQuote('exploitBlocked');
       return;
     }
@@ -519,24 +709,23 @@ export class GameScene extends Phaser.Scene {
     const lostAmount = pool.deposited * GAME_CONSTANTS.EXPLOIT_DAMAGE;
     pool.deposited -= lostAmount;
 
-    this.showToast('⚠️ EXPLOIT!', `${pool.name} exploited! Lost $${lostAmount.toFixed(2)}`, 0xF59E0B);
+    this.showToast('⚠️ EXPLOIT!', `${pool.name} hacked! Lost $${lostAmount.toFixed(2)}`, COLORS.warning);
     this.setRalphQuote('exploit');
-    this.flashPoolCard(pool.id, 0xF59E0B);
   }
 
-  private executeWhaleDump(_event: GameEvent): void {
+  private executeWhaleDump(): void {
     this.gameState.whaleEndTime = Date.now() + GAME_CONSTANTS.WHALE_DURATION_MS;
     const reduction = this.gameState.items.insurance > 0 ? '15%' : '30%';
 
-    this.showToast('🐋 WHALE DUMP!', `All yields -${reduction} for 60s`, 0x3B82F6);
+    this.showToast('🐋 WHALE DUMP!', `All yields -${reduction} for 60s`, COLORS.info);
     this.setRalphQuote('whale');
   }
 
-  private executeGasSpike(_event: GameEvent): void {
+  private executeGasSpike(): void {
     this.gameState.gasMultiplier = GAME_CONSTANTS.GAS_MULTIPLIER;
     this.gameState.gasEndTime = Date.now() + GAME_CONSTANTS.GAS_DURATION_MS;
 
-    this.showToast('⛽ GAS SPIKE!', 'Actions cost 3x for 30s', 0xF59E0B);
+    this.showToast('⛽ GAS SPIKE!', 'Actions cost 3x for 30s!', COLORS.warning);
     this.setRalphQuote('gas');
   }
 
@@ -549,26 +738,22 @@ export class GameScene extends Phaser.Scene {
     pool.isPumping = true;
     pool.pumpEndTime = Date.now() + GAME_CONSTANTS.PUMP_DURATION_MS;
 
-    this.showToast('🚀 PUMP!', `${pool.name} 2x yields for 30s!`, 0x10B981);
+    this.showToast('🚀 PUMP!', `${pool.name} 2x yields for 30s!`, COLORS.success);
     this.setRalphQuote('pump');
-    this.flashPoolCard(pool.id, 0x10B981);
   }
 
   private checkTemporaryEffects(): void {
     const now = Date.now();
 
-    // Check gas spike end
     if (this.gameState.gasEndTime && now >= this.gameState.gasEndTime) {
       this.gameState.gasMultiplier = 1;
       this.gameState.gasEndTime = null;
     }
 
-    // Check whale dump end
     if (this.gameState.whaleEndTime && now >= this.gameState.whaleEndTime) {
       this.gameState.whaleEndTime = null;
     }
 
-    // Check pump ends
     this.gameState.pools.forEach(pool => {
       if (pool.isPumping && pool.pumpEndTime && now >= pool.pumpEndTime) {
         pool.isPumping = false;
@@ -580,14 +765,7 @@ export class GameScene extends Phaser.Scene {
   private checkEndConditions(): void {
     if (this.gameState.portfolio >= GAME_CONSTANTS.WIN_PORTFOLIO) {
       this.gameState.isVictory = true;
-
-      // Save stats to LocalStorage
-      saveManager.recordGameEnd(
-        this.gameState.stats,
-        true,
-        this.gameState.currentRun.elapsed
-      );
-
+      saveManager.recordGameEnd(this.gameState.stats, true, this.gameState.currentRun.elapsed);
       this.scene.start('WinScene', {
         portfolio: this.gameState.portfolio,
         stats: this.gameState.stats,
@@ -597,14 +775,7 @@ export class GameScene extends Phaser.Scene {
 
     if (this.gameState.portfolio <= 0) {
       this.gameState.isGameOver = true;
-
-      // Save stats to LocalStorage
-      saveManager.recordGameEnd(
-        this.gameState.stats,
-        false,
-        this.gameState.currentRun.elapsed
-      );
-
+      saveManager.recordGameEnd(this.gameState.stats, false, this.gameState.currentRun.elapsed);
       this.scene.start('DeathScene', {
         portfolio: this.gameState.portfolio,
         stats: this.gameState.stats,
@@ -616,14 +787,14 @@ export class GameScene extends Phaser.Scene {
   private deposit(poolId: string, amount: number): void {
     const pool = this.gameState.pools.find(p => p.id === poolId);
     if (!pool || pool.isRugged) {
-      this.showToast('❌ Pool Rugged', 'This pool has been rugged!', 0xEF4444);
+      this.showToast('❌ Pool Rugged', 'This pool has been rugged!', COLORS.danger);
       return;
     }
 
     const cost = amount * this.gameState.gasMultiplier;
     if (this.gameState.portfolio < cost) {
       this.setRalphQuote('cantAfford');
-      this.showToast('❌ Insufficient Funds', `Need $${cost.toFixed(2)} (${this.gameState.gasMultiplier}x gas)`, 0xEF4444);
+      this.showToast('❌ Insufficient Funds', `Need $${cost.toFixed(2)}`, COLORS.danger);
       return;
     }
 
@@ -638,10 +809,9 @@ export class GameScene extends Phaser.Scene {
     const pool = this.gameState.pools.find(p => p.id === poolId);
     if (!pool || pool.isRugged) return;
 
-    // Withdraw all if amount is greater than deposited
     const actualAmount = Math.min(amount, pool.deposited);
     if (actualAmount <= 0) {
-      this.showToast('❌ Nothing to Withdraw', 'No funds in this pool', 0xF59E0B);
+      this.showToast('❌ Nothing to Withdraw', 'No funds in this pool', COLORS.warning);
       return;
     }
 
@@ -667,7 +837,7 @@ export class GameScene extends Phaser.Scene {
     this.gameState.portfolio -= cost;
     this.gameState.items.audits++;
     this.setRalphQuote('buyAudit');
-    this.showToast('🛡️ Audit Purchased!', `Exploit protection +1 (${this.gameState.items.audits} total)`, 0x8B5CF6);
+    this.showToast('🛡️ Audit Purchased!', `Protection +1 (${this.gameState.items.audits} total)`, COLORS.primary);
   }
 
   private buyInsurance(): void {
@@ -680,12 +850,24 @@ export class GameScene extends Phaser.Scene {
     this.gameState.portfolio -= cost;
     this.gameState.items.insurance++;
     this.setRalphQuote('buyInsurance');
-    this.showToast('🏥 Insurance Purchased!', `Whale dump protection +1 (${this.gameState.items.insurance} total)`, 0x8B5CF6);
+    this.showToast('🏥 Insurance Purchased!', `Protection +1 (${this.gameState.items.insurance} total)`, COLORS.primary);
   }
 
   private updateUI(): void {
-    // Portfolio
-    this.portfolioText.setText(`$${this.gameState.portfolio.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+    // Portfolio with formatting
+    const portfolio = this.gameState.portfolio;
+    this.portfolioText.setText(`$${portfolio.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+
+    // Portfolio change indicator
+    const change = portfolio - this.lastPortfolio;
+    if (change > 0) {
+      this.portfolioChange.setText(`+$${change.toFixed(2)}/s`);
+      this.portfolioChange.setColor('#10B981');
+    } else if (change < 0) {
+      this.portfolioChange.setText(`-$${Math.abs(change).toFixed(2)}/s`);
+      this.portfolioChange.setColor('#EF4444');
+    }
+    this.lastPortfolio = portfolio;
 
     // Pool cards
     this.gameState.pools.forEach(pool => {
@@ -694,56 +876,76 @@ export class GameScene extends Phaser.Scene {
 
       card.depositedText.setText(`$${pool.deposited.toFixed(2)}`);
 
-      // Calculate yield per second for display
       let yps = pool.deposited * (pool.apy / 100) / 365 / 24 / 60 / 60 * this.gameState.halvingMultiplier;
       if (pool.isPumping) yps *= 2;
-      card.yieldText.setText(`+$${yps.toFixed(4)}/sec`);
+      card.yieldText.setText(`+$${yps.toFixed(4)}/s`);
 
-      // Update colors based on state
+      // Visual states
       if (pool.isRugged) {
-        card.bg.setFillStyle(0x3D3D5C);
         card.depositedText.setColor('#EF4444');
+        card.yieldText.setText('RUGGED');
+        card.yieldText.setColor('#EF4444');
       } else if (pool.isPumping) {
-        card.bg.setStrokeStyle(2, 0x10B981);
+        card.yieldText.setColor('#10B981');
       } else {
-        card.bg.setStrokeStyle(1, 0x3D3D5C);
+        card.depositedText.setColor('#10B981');
+        card.yieldText.setColor('#71717A');
       }
     });
 
     // Items
     this.auditsText.setText(this.gameState.items.audits.toString());
     this.insuranceText.setText(this.gameState.items.insurance.toString());
+
+    // Gas status
+    if (this.gameState.gasMultiplier > 1) {
+      this.gasText.setText(`${this.gameState.gasMultiplier}x HIGH`);
+      this.gasText.setColor('#EF4444');
+    } else {
+      this.gasText.setText('1x NORMAL');
+      this.gasText.setColor('#10B981');
+    }
   }
 
   private showToast(title: string, message: string, color: number): void {
     const toast = this.add.container(0, 0);
 
-    const bg = this.add.rectangle(0, 0, 300, 80, 0x1E1E32);
-    bg.setStrokeStyle(3, color);
+    const bg = this.add.graphics();
+    bg.fillStyle(COLORS.bgLight, 1);
+    bg.fillRoundedRect(-160, -40, 320, 80, 10);
+    bg.lineStyle(2, color, 1);
+    bg.strokeRoundedRect(-160, -40, 320, 80, 10);
 
-    const titleText = this.add.text(-130, -20, title, {
+    // Color accent bar
+    const accent = this.add.graphics();
+    accent.fillStyle(color, 1);
+    accent.fillRoundedRect(-160, -40, 6, 80, { tl: 10, bl: 10, tr: 0, br: 0 });
+
+    const titleText = this.add.text(-140, -20, title, {
       fontFamily: 'Space Grotesk, sans-serif',
-      fontSize: '18px',
+      fontSize: '16px',
       color: '#FFFFFF',
       fontStyle: 'bold',
-    }).setOrigin(0, 0.5);
+    });
 
-    const msgText = this.add.text(-130, 10, message, {
+    const msgText = this.add.text(-140, 5, message, {
       fontFamily: 'Inter, sans-serif',
-      fontSize: '14px',
+      fontSize: '13px',
       color: '#A1A1AA',
-    }).setOrigin(0, 0.5);
+    });
 
-    toast.add([bg, titleText, msgText]);
-    toast.setPosition(-170, this.toastContainer.list.length * 100);
+    toast.add([bg, accent, titleText, msgText]);
+    toast.setPosition(-180, this.toastContainer.list.length * 95);
+    toast.setAlpha(0);
     this.toastContainer.add(toast);
 
     // Animate in
     this.tweens.add({
       targets: toast,
-      x: -170,
-      alpha: { from: 0, to: 1 },
-      duration: 300,
+      alpha: 1,
+      x: -180,
+      duration: 200,
+      ease: 'Power2',
     });
 
     // Remove after delay
@@ -751,7 +953,9 @@ export class GameScene extends Phaser.Scene {
       this.tweens.add({
         targets: toast,
         alpha: 0,
-        duration: 300,
+        x: -100,
+        duration: 200,
+        ease: 'Power2',
         onComplete: () => toast.destroy(),
       });
     });
@@ -759,19 +963,20 @@ export class GameScene extends Phaser.Scene {
 
   private setRalphQuote(category: string): void {
     const quote = getRandomQuote(category as keyof typeof import('../data/ralph-quotes.ts').RALPH_QUOTES);
-    this.ralphText.setText(`Ralph: "${quote}"`);
+    this.ralphText.setText(`"${quote}"`);
   }
 
-  private flashPoolCard(poolId: string, color: number): void {
-    const card = this.poolCards.get(poolId);
-    if (!card) return;
+  private flashScreen(color: number): void {
+    const width = this.cameras.main.width;
+    const height = this.cameras.main.height;
+
+    const flash = this.add.rectangle(width / 2, height / 2, width, height, color, 0.3);
 
     this.tweens.add({
-      targets: card.bg,
-      fillColor: { from: color, to: 0x1E1E32 },
+      targets: flash,
+      alpha: 0,
       duration: 500,
-      yoyo: true,
-      repeat: 2,
+      onComplete: () => flash.destroy(),
     });
   }
 
@@ -788,4 +993,5 @@ interface PoolCardUI {
   depositedText: Phaser.GameObjects.Text;
   yieldText: Phaser.GameObjects.Text;
   apyText: Phaser.GameObjects.Text;
+  graphics: Phaser.GameObjects.Graphics;
 }
