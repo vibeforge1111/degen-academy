@@ -77,8 +77,8 @@ export class MenuScene extends Phaser.Scene {
 
     currentY += 100;
 
-    // Info cards - positioned below button
-    const cardY = currentY + 40;
+    // Info cards - positioned lower, closer to middle of remaining space
+    const cardY = currentY + 80;
     this.createInfoCard(width / 2 - 200, cardY, '💰', 'Start: $10,000', 'Your initial funding');
     this.createInfoCard(width / 2, cardY, '🎯', 'Goal: $1,000,000', 'Reach to graduate');
     this.createInfoCard(width / 2 + 200, cardY, '⏱️', 'Halving: 5 min', 'Yields cut 50%');
