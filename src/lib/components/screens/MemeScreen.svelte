@@ -2,72 +2,86 @@
   import MemeChart from '../MemeChart.svelte';
   import SocialFeed from '../SocialFeed.svelte';
   import {
-    memeGame,
-    isMemePlaying,
+    allTokens,
+    selectedTokenIndex,
     currentToken,
     playerPosition,
     playerPnL,
-    timeRemaining,
+    tradingTokenIndex,
     priceChange,
+    isMemePlaying,
     startMemeGame,
+    stopMemeGame,
+    selectToken,
     buyToken,
     sellAll,
-    playAgain,
     formatPrice,
     getChangeColor,
+    formatMarketCap,
   } from '../../stores/memeStore.svelte';
   import { portfolio, setScreen, getTotalDeposited } from '../../stores/gameStore.svelte';
+  import { onMount } from 'svelte';
 
-  const game = $derived(memeGame.value);
-  const playing = $derived(isMemePlaying.value);
+  const tokens = $derived(allTokens.value);
+  const selectedIdx = $derived(selectedTokenIndex.value);
   const token = $derived(currentToken.value);
   const position = $derived(playerPosition.value);
   const pnl = $derived(playerPnL.value);
-  const time = $derived(timeRemaining.value);
+  const tradingIdx = $derived(tradingTokenIndex.value);
   const change = $derived(priceChange.value);
+  const playing = $derived(isMemePlaying.value);
   const cashBalance = $derived(portfolio.value);
 
   // Wallet breakdown
   const totalInPools = $derived(getTotalDeposited());
-  const tradingPosition = $derived(position);
-  const totalNetWorth = $derived(cashBalance + totalInPools + tradingPosition);
+  const totalNetWorth = $derived(cashBalance + totalInPools + position);
 
   const pnlColor = $derived(pnl >= 0 ? '#4ade80' : '#ef4444');
   const changeColor = $derived(getChangeColor(change));
 
-  // Market cap calculation
-  const marketCap = $derived(token.currentPrice * token.totalSupply);
+  // Market cap
+  const marketCap = $derived(token ? token.currentPrice * token.totalSupply : 0);
 
   // Buy amounts
   const buyAmounts = [100, 500, 1000];
 
-  function formatMoney(amount: number): string {
-    if (amount >= 1_000_000) {
-      return `$${(amount / 1_000_000).toFixed(2)}M`;
-    } else if (amount >= 1_000) {
-      return `$${(amount / 1_000).toFixed(1)}K`;
+  // Check if can buy this token (not holding another)
+  const canBuyThisToken = $derived(tradingIdx === null || tradingIdx === selectedIdx);
+  const isHoldingThis = $derived(tradingIdx === selectedIdx && position > 0);
+
+  // Auto-start on mount
+  onMount(() => {
+    if (!playing) {
+      startMemeGame();
     }
+    return () => {
+      // Don't stop on unmount - let it run
+    };
+  });
+
+  function formatMoney(amount: number): string {
+    if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(2)}M`;
+    if (amount >= 1_000) return `$${(amount / 1_000).toFixed(1)}K`;
     return `$${amount.toFixed(0)}`;
   }
 
-  function formatMarketCap(cap: number): string {
-    if (cap >= 1_000_000_000) {
-      return `$${(cap / 1_000_000_000).toFixed(2)}B`;
-    } else if (cap >= 1_000_000) {
-      return `$${(cap / 1_000_000).toFixed(2)}M`;
-    } else if (cap >= 1_000) {
-      return `$${(cap / 1_000).toFixed(1)}K`;
-    }
-    return `$${cap.toFixed(0)}`;
+  // Get price change for a token
+  function getTokenChange(t: typeof token): number {
+    if (!t) return 0;
+    return ((t.currentPrice - t.startPrice) / t.startPrice) * 100;
   }
 
-  function formatSupply(supply: number): string {
-    if (supply >= 1_000_000_000) {
-      return `${(supply / 1_000_000_000).toFixed(1)}B`;
-    } else if (supply >= 1_000_000) {
-      return `${(supply / 1_000_000).toFixed(0)}M`;
-    }
-    return supply.toLocaleString();
+  // Mini sparkline for token tabs
+  function getMiniPath(history: number[]): string {
+    if (history.length < 2) return '';
+    const min = Math.min(...history);
+    const max = Math.max(...history);
+    const range = max - min || 1;
+    return history.map((p, i) => {
+      const x = (i / (history.length - 1)) * 40;
+      const y = 12 - ((p - min) / range) * 10;
+      return i === 0 ? `M ${x},${y}` : `L ${x},${y}`;
+    }).join(' ');
   }
 </script>
 
@@ -132,7 +146,7 @@
           <!-- In Pools + Trading -->
           <div style="display: flex; flex-direction: column; line-height: 1.2;">
             <span style="font-size: 9px; color: rgba(255,255,255,0.5); text-transform: uppercase;">Pools + Trading</span>
-            <span class="font-mono font-semibold" style="font-size: 13px; color: #a78bfa;">${(totalInPools + tradingPosition).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            <span class="font-mono font-semibold" style="font-size: 13px; color: #a78bfa;">${(totalInPools + position).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
 
           <div style="width: 1px; height: 28px; background: rgba(255,255,255,0.15);"></div>
@@ -146,144 +160,127 @@
         </div>
       </div>
 
-      <!-- Second Row: Token Info + Stats -->
-      <div style="display: flex; gap: 16px;">
-        <!-- Token Panel (like Ralph panel) -->
-        <div class="ralph-panel" style="flex: 1; display: flex; align-items: center; justify-content: space-between;">
-          <!-- Token Info (left) - inline like Ralph panel -->
-          <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
-            <span style="font-size: 20px;">{token.emoji}</span>
-            <span class="font-chalk text-white" style="font-size: 17px;">{token.name}</span>
-            <span class="font-mono" style="font-size: 13px; color: rgba(255,255,255,0.5);">{token.ticker}</span>
-            {#if position > 0}
-              <span style="color: rgba(255,255,255,0.3);">•</span>
-              <span style="font-size: 12px; color: rgba(255,255,255,0.5);">Pos:</span>
-              <span class="font-mono font-bold" style="font-size: 13px; color: #fff;">{formatMoney(position)}</span>
-              <span style="font-size: 12px; color: rgba(255,255,255,0.5);">P&L:</span>
-              <span class="font-mono font-bold" style="font-size: 13px; color: {pnlColor};">{pnl >= 0 ? '+' : ''}{formatMoney(pnl)}</span>
-            {/if}
-          </div>
-
-          <!-- Watching Time (right) -->
-          {#if playing}
-            <div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(255,255,255,0.08); border-radius: 6px; margin-left: 16px;">
-              <span style="font-size: 11px; color: rgba(255,255,255,0.5);">Watching</span>
-              <span class="font-mono font-bold" style="font-size: 13px; color: #a78bfa;">{90 - time}s</span>
+      <!-- Second Row: Token Tabs (like Ralph panel) -->
+      <div class="token-tabs-row">
+        {#each tokens as t, i}
+          {@const tokenChange = getTokenChange(t)}
+          {@const tokenColor = getChangeColor(tokenChange)}
+          <button
+            class="token-tab"
+            class:active={selectedIdx === i}
+            class:holding={tradingIdx === i}
+            onclick={() => selectToken(i)}
+          >
+            <span class="token-emoji">{t.emoji}</span>
+            <div class="token-info">
+              <span class="token-ticker">{t.ticker}</span>
+              <span class="token-change" style="color: {tokenColor}">
+                {tokenChange >= 0 ? '+' : ''}{tokenChange.toFixed(0)}%
+              </span>
             </div>
-          {/if}
-        </div>
-
-        <!-- Stats Panel -->
-        <div class="stats-panel">
-          <!-- Market Cap -->
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <span style="font-size: 10px; color: rgba(255,255,255,0.4);">MCap</span>
-            <span class="font-mono font-bold" style="font-size: 13px; color: #a78bfa;">
-              {formatMarketCap(marketCap)}
-            </span>
-          </div>
-
-          <div style="width: 1px; height: 14px; background: rgba(255,255,255,0.15);"></div>
-
-          <!-- Supply -->
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <span style="font-size: 10px; color: rgba(255,255,255,0.4);">Supply</span>
-            <span class="font-mono font-bold" style="font-size: 13px; color: rgba(255,255,255,0.7);">
-              {formatSupply(token.totalSupply)}
-            </span>
-          </div>
-
-          <div style="width: 1px; height: 14px; background: rgba(255,255,255,0.15);"></div>
-
-          <!-- Price Change -->
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <span style="font-size: 10px; color: rgba(255,255,255,0.4);">Change</span>
-            <span class="font-mono font-bold" style="font-size: 13px; color: {changeColor};">
-              {change >= 0 ? '+' : ''}{change.toFixed(1)}%
-            </span>
-          </div>
-        </div>
+            <svg class="mini-chart" viewBox="0 0 40 14" preserveAspectRatio="none">
+              <path d={getMiniPath(t.priceHistory)} fill="none" stroke={tokenColor} stroke-width="1.5"/>
+            </svg>
+            {#if tradingIdx === i}
+              <span class="holding-badge">HOLD</span>
+            {/if}
+          </button>
+        {/each}
       </div>
     </header>
 
     <!-- Main Content Area -->
-    <div class="flex-1 overflow-hidden" style="padding: 0 32px 32px 32px;">
-      <div class="main-grid">
-        <!-- Left: Chart + Controls -->
-        <div class="chart-section">
-          <MemeChart />
-
-          <!-- Game Controls -->
-          <div class="controls">
-            {#if !playing && game.gamePhase === 'pregame'}
-              <!-- Start Game -->
-              <button class="btn-start" onclick={() => startMemeGame()}>
-                <span class="btn-icon">🎰</span>
-                <span>Start Trading</span>
-              </button>
-            {:else if playing}
-              <!-- Trading Controls -->
-              <div class="trading-controls">
-                <!-- Buy Buttons -->
-                <div class="buy-buttons">
-                  {#each buyAmounts as amount}
-                    <button
-                      class="btn-buy"
-                      onclick={() => buyToken(amount)}
-                      disabled={cashBalance < amount}
-                    >
-                      Buy {formatMoney(amount)}
-                    </button>
-                  {/each}
-                </div>
-
-                <!-- Sell Button -->
-                {#if position > 0}
-                  <button class="btn-sell" onclick={() => sellAll()}>
-                    <span>SELL ALL</span>
-                    <span class="sell-value" style="color: {pnlColor}">
-                      ({pnl >= 0 ? '+' : ''}{formatMoney(pnl)})
-                    </span>
-                  </button>
-                {/if}
+    <div class="flex-1 overflow-hidden" style="padding: 0 32px 24px 32px;">
+      <div class="trading-layout">
+        <!-- Left: Chart + Token Info -->
+        <div class="chart-area">
+          <!-- Token Header -->
+          <div class="token-header">
+            <div class="token-identity">
+              <span class="big-emoji">{token?.emoji}</span>
+              <div>
+                <h2 class="token-name">{token?.name}</h2>
+                <span class="token-ticker-sub">{token?.ticker}</span>
               </div>
-            {:else}
-              <!-- Game Over -->
-              <div class="game-over">
-                {#if game.gamePhase === 'rugged'}
-                  <div class="result rugged">
-                    <span class="result-icon">💀</span>
-                    <span class="result-title">RUGGED!</span>
-                    <span class="result-subtitle">The dev pulled the rug. Classic.</span>
-                  </div>
-                {:else if game.gamePhase === 'mooned'}
-                  <div class="result mooned">
-                    <span class="result-icon">🚀</span>
-                    <span class="result-title">MOON MISSION!</span>
-                    <span class="result-subtitle">You caught a unicorn!</span>
-                  </div>
-                {:else}
-                  <div class="result exited">
-                    <span class="result-icon">{pnl >= 0 ? '💰' : '📉'}</span>
-                    <span class="result-title">{pnl >= 0 ? 'PROFIT!' : 'LOSS'}</span>
-                    <span class="result-subtitle" style="color: {pnlColor}">
-                      {pnl >= 0 ? '+' : ''}{formatMoney(pnl)}
-                    </span>
-                  </div>
-                {/if}
-
-                <button class="btn-play-again" onclick={() => playAgain()}>
-                  <span>🎲</span>
-                  <span>Play Again</span>
-                </button>
+            </div>
+            <div class="token-price">
+              <span class="price-value">{formatPrice(token?.currentPrice || 0)}</span>
+              <span class="price-change" style="color: {changeColor}">
+                {change >= 0 ? '+' : ''}{change.toFixed(1)}%
+              </span>
+            </div>
+            <div class="token-stats">
+              <div class="stat">
+                <span class="stat-label">MCap</span>
+                <span class="stat-value">{formatMarketCap(marketCap)}</span>
               </div>
-            {/if}
+              <div class="stat">
+                <span class="stat-label">Supply</span>
+                <span class="stat-value">{token?.totalSupply ? (token.totalSupply / 1_000_000_000).toFixed(1) + 'B' : '-'}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chart -->
+          <div class="chart-container">
+            <MemeChart />
           </div>
         </div>
 
-        <!-- Right: Social Feed -->
-        <div class="feed-section">
-          <SocialFeed />
+        <!-- Right: Feed + Trading -->
+        <div class="trading-area">
+          <!-- Position Info (if holding) -->
+          {#if isHoldingThis}
+            <div class="position-card">
+              <div class="position-header">
+                <span>Your Position</span>
+                <span class="position-token">{token?.ticker}</span>
+              </div>
+              <div class="position-values">
+                <div class="position-item">
+                  <span class="pos-label">Value</span>
+                  <span class="pos-value">{formatMoney(position)}</span>
+                </div>
+                <div class="position-item">
+                  <span class="pos-label">P&L</span>
+                  <span class="pos-value" style="color: {pnlColor}">
+                    {pnl >= 0 ? '+' : ''}{formatMoney(pnl)}
+                  </span>
+                </div>
+              </div>
+              <button class="sell-btn" onclick={() => sellAll()}>
+                SELL ALL
+              </button>
+            </div>
+          {:else if tradingIdx !== null && tradingIdx !== selectedIdx}
+            <div class="position-card warning">
+              <span class="warning-text">You're holding {tokens[tradingIdx]?.ticker}</span>
+              <span class="warning-sub">Sell before buying another token</span>
+            </div>
+          {/if}
+
+          <!-- Buy Buttons -->
+          {#if canBuyThisToken}
+            <div class="buy-section">
+              <span class="buy-label">Quick Buy</span>
+              <div class="buy-buttons">
+                {#each buyAmounts as amount}
+                  <button
+                    class="buy-btn"
+                    onclick={() => buyToken(amount)}
+                    disabled={cashBalance < amount}
+                  >
+                    ${amount >= 1000 ? `${amount/1000}K` : amount}
+                  </button>
+                {/each}
+              </div>
+            </div>
+          {/if}
+
+          <!-- Live Feed -->
+          <div class="feed-area">
+            <SocialFeed />
+          </div>
         </div>
       </div>
     </div>
@@ -337,198 +334,328 @@
     color: white;
   }
 
-  /* Ralph/Token panel (same as GameScreen) */
-  .ralph-panel {
+  /* Token Tabs Row */
+  .token-tabs-row {
+    display: flex;
+    gap: 8px;
     padding: 10px 14px;
     background: #2d2d3a;
     border-radius: 10px;
     border: 1px solid rgba(255,255,255,0.08);
+    overflow-x: auto;
   }
 
-  /* Stats panel (same as GameScreen) */
-  .stats-panel {
+  .token-tab {
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 10px 16px;
-    background: #2d2d3a;
-    border-radius: 10px;
-    border: 1px solid rgba(255,255,255,0.08);
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    position: relative;
+    min-width: fit-content;
   }
 
-  /* Main Grid Layout */
-  .main-grid {
+  .token-tab:hover {
+    background: rgba(255,255,255,0.08);
+  }
+
+  .token-tab.active {
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(255,255,255,0.2);
+  }
+
+  .token-tab.holding {
+    border-color: rgba(167, 139, 250, 0.5);
+    box-shadow: 0 0 8px rgba(167, 139, 250, 0.2);
+  }
+
+  .token-emoji {
+    font-size: 18px;
+  }
+
+  .token-info {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+  }
+
+  .token-ticker {
+    font-size: 11px;
+    font-weight: 600;
+    color: white;
+  }
+
+  .token-change {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .mini-chart {
+    width: 40px;
+    height: 14px;
+  }
+
+  .holding-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    font-size: 7px;
+    font-weight: 700;
+    padding: 2px 4px;
+    background: #a78bfa;
+    color: #131722;
+    border-radius: 3px;
+  }
+
+  /* Trading Layout */
+  .trading-layout {
     display: grid;
-    grid-template-columns: 1fr 380px;
-    gap: 24px;
+    grid-template-columns: 1fr 300px;
+    gap: 20px;
     height: 100%;
   }
 
   @media (max-width: 1024px) {
-    .main-grid {
+    .trading-layout {
       grid-template-columns: 1fr;
-    }
-
-    .feed-section {
-      height: 300px;
+      grid-template-rows: 1fr auto;
     }
   }
 
-  .chart-section {
+  .chart-area {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
     min-height: 0;
   }
 
-  .feed-section {
-    min-height: 400px;
-  }
-
-  /* Controls */
-  .controls {
-    margin-top: auto;
-  }
-
-  .btn-start {
-    width: 100%;
-    padding: 20px;
-    font-size: 20px;
-    font-weight: 700;
-    color: white;
-    background: linear-gradient(135deg, #8b5cf6, #6366f1);
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
+  .token-header {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 12px;
-    transition: transform 0.2s, box-shadow 0.2s;
+    gap: 24px;
+    padding: 12px 16px;
+    background: rgba(19, 23, 34, 0.8);
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.08);
   }
 
-  .btn-start:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 30px rgba(139, 92, 246, 0.4);
-  }
-
-  .btn-icon {
-    font-size: 28px;
-  }
-
-  .trading-controls {
+  .token-identity {
     display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .buy-buttons {
-    display: flex;
+    align-items: center;
     gap: 10px;
   }
 
-  .btn-buy {
-    flex: 1;
-    padding: 14px;
-    font-size: 14px;
+  .big-emoji {
+    font-size: 28px;
+  }
+
+  .token-name {
+    font-size: 16px;
     font-weight: 600;
     color: white;
-    background: rgba(34, 197, 94, 0.2);
-    border: 1px solid rgba(34, 197, 94, 0.4);
-    border-radius: 10px;
-    cursor: pointer;
-    transition: all 0.2s;
+    line-height: 1.2;
   }
 
-  .btn-buy:hover:not(:disabled) {
-    background: rgba(34, 197, 94, 0.3);
-    border-color: rgba(34, 197, 94, 0.6);
+  .token-ticker-sub {
+    font-size: 11px;
+    color: rgba(255,255,255,0.5);
+    font-family: 'JetBrains Mono', monospace;
   }
 
-  .btn-buy:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
+  .token-price {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
   }
 
-  .btn-sell {
-    width: 100%;
+  .price-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: white;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .price-change {
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .token-stats {
+    display: flex;
+    gap: 16px;
+    margin-left: auto;
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .stat-label {
+    font-size: 9px;
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase;
+  }
+
+  .stat-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.9);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .chart-container {
+    flex: 1;
+    min-height: 250px;
+  }
+
+  /* Trading Area */
+  .trading-area {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+  }
+
+  .position-card {
+    padding: 12px;
+    background: rgba(167, 139, 250, 0.1);
+    border: 1px solid rgba(167, 139, 250, 0.3);
+    border-radius: 8px;
+  }
+
+  .position-card.warning {
+    background: rgba(251, 191, 36, 0.1);
+    border-color: rgba(251, 191, 36, 0.3);
+    text-align: center;
     padding: 16px;
-    font-size: 16px;
+  }
+
+  .warning-text {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fbbf24;
+    margin-bottom: 4px;
+  }
+
+  .warning-sub {
+    font-size: 10px;
+    color: rgba(255,255,255,0.5);
+  }
+
+  .position-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.6);
+  }
+
+  .position-token {
+    font-weight: 600;
+    color: #a78bfa;
+  }
+
+  .position-values {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 10px;
+  }
+
+  .position-item {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .pos-label {
+    font-size: 9px;
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase;
+  }
+
+  .pos-value {
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    color: white;
+  }
+
+  .sell-btn {
+    width: 100%;
+    padding: 10px;
+    font-size: 12px;
     font-weight: 700;
     color: white;
     background: linear-gradient(135deg, #ef4444, #dc2626);
     border: none;
-    border-radius: 10px;
+    border-radius: 6px;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    transition: transform 0.2s;
+    transition: transform 0.1s;
   }
 
-  .btn-sell:hover {
+  .sell-btn:hover {
     transform: scale(1.02);
   }
 
-  .sell-value {
-    font-family: 'JetBrains Mono', monospace;
+  .sell-btn:active {
+    transform: scale(0.98);
   }
 
-  /* Game Over */
-  .game-over {
+  /* Buy Section */
+  .buy-section {
+    padding: 12px;
+    background: rgba(19, 23, 34, 0.8);
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .buy-label {
+    display: block;
+    font-size: 10px;
+    color: rgba(255,255,255,0.5);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .buy-buttons {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
-    padding: 30px;
-    background: rgba(30, 30, 50, 0.8);
-    border-radius: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    gap: 6px;
   }
 
-  .result {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    text-align: center;
-  }
-
-  .result-icon {
-    font-size: 60px;
-  }
-
-  .result-title {
-    font-size: 28px;
-    font-weight: 800;
-    font-family: 'Space Grotesk', sans-serif;
-  }
-
-  .result.rugged .result-title { color: #ef4444; }
-  .result.mooned .result-title { color: #4ade80; }
-
-  .result-subtitle {
-    font-size: 16px;
-    color: rgba(255, 255, 255, 0.7);
-  }
-
-  .btn-play-again {
-    padding: 14px 28px;
-    font-size: 16px;
+  .buy-btn {
+    flex: 1;
+    padding: 10px 8px;
+    font-size: 12px;
     font-weight: 600;
     color: white;
-    background: linear-gradient(135deg, #8b5cf6, #6366f1);
-    border: none;
-    border-radius: 10px;
+    background: rgba(34, 197, 94, 0.2);
+    border: 1px solid rgba(34, 197, 94, 0.4);
+    border-radius: 6px;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    transition: transform 0.2s;
+    transition: all 0.15s;
   }
 
-  .btn-play-again:hover {
-    transform: scale(1.05);
+  .buy-btn:hover:not(:disabled) {
+    background: rgba(34, 197, 94, 0.3);
+    border-color: rgba(34, 197, 94, 0.6);
+  }
+
+  .buy-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  /* Feed Area */
+  .feed-area {
+    flex: 1;
+    min-height: 150px;
   }
 </style>

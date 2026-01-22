@@ -1,68 +1,43 @@
 <script lang="ts">
   import { socialPosts } from '../stores/memeStore.svelte';
-  import type { SocialPost, MemeEventType } from '../../types/meme';
+  import type { MemeEventType } from '../../types/meme';
 
   const posts = $derived(socialPosts.value);
 
-  // Author type avatar colors
-  function getAvatarStyle(authorType: string): string {
-    switch (authorType) {
-      case 'kol': return 'linear-gradient(135deg, #8b5cf6, #6366f1)';
-      case 'whale': return 'linear-gradient(135deg, #0ea5e9, #06b6d4)';
-      case 'dev': return 'linear-gradient(135deg, #22c55e, #10b981)';
-      case 'celebrity': return 'linear-gradient(135deg, #f59e0b, #eab308)';
-      case 'exchange': return 'linear-gradient(135deg, #f97316, #ef4444)';
-      case 'news': return 'linear-gradient(135deg, #3b82f6, #1d4ed8)';
-      case 'fudder': return 'linear-gradient(135deg, #ef4444, #dc2626)';
-      case 'analyst': return 'linear-gradient(135deg, #14b8a6, #0d9488)';
-      case 'newbie': return 'linear-gradient(135deg, #a78bfa, #c084fc)';
-      case 'bot': return 'linear-gradient(135deg, #64748b, #475569)';
-      case 'scammer': return 'linear-gradient(135deg, #991b1b, #7f1d1d)';
-      default: return 'linear-gradient(135deg, rgba(139, 92, 246, 0.5), rgba(59, 130, 246, 0.5))';
-    }
-  }
-
-  // Event type styling
-  function getEventStyle(type: MemeEventType): { bg: string; border: string; icon: string } {
+  // Event type colors (simplified)
+  function getEventColor(type: MemeEventType): string {
     switch (type) {
       case 'whale_buy':
       case 'exchange_listing':
       case 'partnership':
       case 'celebrity_mention':
-      case 'team_doxx':
-      case 'airdrop_rumor':
-        return { bg: 'rgba(74, 222, 128, 0.1)', border: 'rgba(74, 222, 128, 0.3)', icon: '🟢' };
+      case 'kol_shill':
+      case 'dev_update':
+      case 'organic_pump':
+      case 'diamond_hands':
+        return '#22c55e'; // Green
 
       case 'whale_dump':
       case 'rug_pull':
       case 'hack_rumor':
       case 'liquidity_remove':
-      case 'black_swan':
-      case 'regulatory_fud':
-        return { bg: 'rgba(239, 68, 68, 0.1)', border: 'rgba(239, 68, 68, 0.3)', icon: '🔴' };
-
-      case 'kol_shill':
-      case 'dev_update':
-      case 'organic_pump':
-      case 'diamond_hands':
-      case 'newbie_fomo':
-        return { bg: 'rgba(34, 197, 94, 0.1)', border: 'rgba(34, 197, 94, 0.3)', icon: '📈' };
-
       case 'kol_fud':
-      case 'dev_rug_signal':
       case 'organic_dump':
       case 'paper_hands':
-      case 'competitor_fud':
-        return { bg: 'rgba(251, 191, 36, 0.1)', border: 'rgba(251, 191, 36, 0.3)', icon: '📉' };
+        return '#ef4444'; // Red
+
+      case 'newbie_fomo':
+      case 'airdrop_rumor':
+        return '#a78bfa'; // Purple
 
       default:
-        return { bg: 'rgba(167, 139, 250, 0.1)', border: 'rgba(167, 139, 250, 0.3)', icon: '💬' };
+        return '#6b7280'; // Gray
     }
   }
 
   function formatTime(timestamp: number): string {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
-    if (seconds < 5) return 'just now';
+    if (seconds < 5) return 'now';
     if (seconds < 60) return `${seconds}s`;
     return `${Math.floor(seconds / 60)}m`;
   }
@@ -71,52 +46,22 @@
 <div class="feed-container">
   <div class="feed-header">
     <span class="feed-title">Live Feed</span>
-    <span class="feed-live">LIVE</span>
+    <span class="live-dot"></span>
   </div>
 
   <div class="posts-list">
-    {#each posts as post, i (post.id)}
-      {@const style = getEventStyle(post.eventType)}
-      <div
-        class="post"
-        class:new={i === 0}
-        style="
-          background: {style.bg};
-          border-color: {style.border};
-          animation-delay: {i * 50}ms;
-        "
-      >
-        <!-- Author avatar and info -->
-        <div class="post-author">
-          <span class="avatar" style="background: {getAvatarStyle(post.author.type)}">{post.author.avatar}</span>
-          <div class="author-info">
-            <div class="author-name-row">
-              <span class="author-name">{post.author.name}</span>
-              {#if post.author.verified}
-                <span class="verified">✓</span>
-              {/if}
-            </div>
-            <span class="author-handle">{post.author.handle}</span>
-          </div>
-          <span class="post-time">{formatTime(post.timestamp)}</span>
+    {#each posts as post (post.id)}
+      <div class="post" style="border-left-color: {getEventColor(post.eventType)}">
+        <div class="post-top">
+          <span class="author">{post.author.name}</span>
+          <span class="time">{formatTime(post.timestamp)}</span>
         </div>
-
-        <!-- Post content -->
-        <p class="post-content">{post.content}</p>
-
-        <!-- Engagement (fake numbers for fun) -->
-        <div class="post-engagement">
-          <span>💬 {Math.floor(Math.random() * 50)}</span>
-          <span>🔁 {Math.floor(Math.random() * 200)}</span>
-          <span>❤️ {Math.floor(Math.random() * 500)}</span>
-        </div>
+        <p class="content">{post.content}</p>
       </div>
     {/each}
 
     {#if posts.length === 0}
-      <div class="empty-feed">
-        <span>Waiting for activity...</span>
-      </div>
+      <div class="empty">Waiting for activity...</div>
     {/if}
   </div>
 </div>
@@ -126,169 +71,116 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    background: rgba(20, 20, 35, 0.6);
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    max-height: 240px;
+    background: rgba(19, 23, 34, 0.8);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
     overflow: hidden;
   }
 
   .feed-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 12px 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(30, 30, 50, 0.5);
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(0, 0, 0, 0.2);
   }
 
   .feed-title {
-    font-size: 14px;
+    font-size: 11px;
     font-weight: 600;
-    color: white;
+    color: rgba(255, 255, 255, 0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
 
-  .feed-live {
-    font-size: 10px;
-    font-weight: 700;
-    color: #ef4444;
-    background: rgba(239, 68, 68, 0.2);
-    padding: 3px 8px;
-    border-radius: 4px;
-    animation: pulse-live 1.5s ease-in-out infinite;
+  .live-dot {
+    width: 6px;
+    height: 6px;
+    background: #ef4444;
+    border-radius: 50%;
+    animation: blink 1.5s ease-in-out infinite;
   }
 
-  @keyframes pulse-live {
+  @keyframes blink {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+    50% { opacity: 0.3; }
   }
 
   .posts-list {
     flex: 1;
     overflow-y: auto;
-    padding: 8px;
+    padding: 6px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-  }
-
-  .post {
-    padding: 12px;
-    border-radius: 10px;
-    border: 1px solid;
-    animation: slide-in 0.3s ease-out;
-  }
-
-  .post.new {
-    animation: slide-in 0.3s ease-out, highlight 0.5s ease-out;
-  }
-
-  @keyframes slide-in {
-    from {
-      opacity: 0;
-      transform: translateY(-10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  @keyframes highlight {
-    0% { box-shadow: 0 0 20px rgba(167, 139, 250, 0.5); }
-    100% { box-shadow: none; }
-  }
-
-  .post-author {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-  }
-
-  .avatar {
-    font-size: 20px;
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(59, 130, 246, 0.3));
-    border-radius: 50%;
-    border: 2px solid rgba(255, 255, 255, 0.15);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  }
-
-  .author-info {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .author-name-row {
-    display: flex;
-    align-items: center;
     gap: 4px;
   }
 
-  .author-name {
-    font-size: 13px;
-    font-weight: 600;
-    color: white;
+  .post {
+    padding: 6px 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 4px;
+    border-left: 2px solid;
+    animation: slideIn 0.2s ease-out;
   }
 
-  .verified {
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateX(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .post-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2px;
+  }
+
+  .author {
     font-size: 10px;
-    color: #60a5fa;
-    background: rgba(96, 165, 250, 0.2);
-    padding: 1px 4px;
-    border-radius: 3px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.6);
   }
 
-  .author-handle {
+  .time {
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.3);
+  }
+
+  .content {
     font-size: 11px;
-    color: rgba(255, 255, 255, 0.5);
-  }
-
-  .post-time {
-    font-size: 11px;
-    color: rgba(255, 255, 255, 0.4);
-  }
-
-  .post-content {
-    font-size: 13px;
-    color: rgba(255, 255, 255, 0.9);
-    line-height: 1.4;
-    margin-bottom: 8px;
+    color: rgba(255, 255, 255, 0.85);
+    line-height: 1.3;
     word-break: break-word;
   }
 
-  .post-engagement {
-    display: flex;
-    gap: 16px;
-    font-size: 11px;
-    color: rgba(255, 255, 255, 0.4);
-  }
-
-  .empty-feed {
+  .empty {
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 100px;
-    color: rgba(255, 255, 255, 0.4);
-    font-size: 13px;
+    height: 60px;
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 11px;
   }
 
-  /* Custom scrollbar */
+  /* Compact scrollbar */
   .posts-list::-webkit-scrollbar {
-    width: 6px;
+    width: 4px;
   }
 
   .posts-list::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 3px;
+    background: transparent;
   }
 
   .posts-list::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
   }
 </style>

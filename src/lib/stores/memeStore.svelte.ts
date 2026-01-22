@@ -16,16 +16,16 @@ import { portfolio, addToPortfolio, deductFromPortfolio } from './gameStore.svel
 
 const MEME_CONSTANTS = {
   TICK_INTERVAL_MS: 500,           // Price updates every 500ms
-  EVENT_CHECK_INTERVAL_MS: 1500,   // Check for events every 1.5s
-  BASE_GAME_DURATION: 90,          // Base game length in seconds
-  MAX_POSTS_DISPLAYED: 8,          // Max posts in feed
+  EVENT_CHECK_INTERVAL_MS: 2500,   // Check for events every 2.5s
+  MAX_POSTS_DISPLAYED: 5,          // Max posts in feed (compact)
   STARTING_PRICE: 0.000001,        // Starting price for new tokens
-  BASE_VOLATILITY: 0.02,           // Base price volatility per tick
-  RUG_BASE_PROBABILITY: 0.02,      // Base rug chance per check
-  RUG_PROBABILITY_INCREASE: 0.005, // Rug chance increases over time
+  BASE_VOLATILITY: 0.025,          // Base price volatility per tick
+  RUG_BASE_PROBABILITY: 0.015,     // Base rug chance per check
+  RUG_PROBABILITY_INCREASE: 0.003, // Rug chance increases over time
   MOON_THRESHOLD: 10,              // 10x = moon
   MIN_BUY_AMOUNT: 100,             // Minimum buy in $
   SLIPPAGE: 0.02,                  // 2% slippage on buys
+  NUM_TOKENS: 5,                   // Number of tokens to generate
 };
 
 // ============================================
@@ -33,9 +33,16 @@ const MEME_CONSTANTS = {
 // ============================================
 
 interface MemeStore {
-  game: MemeGameState;
-  stats: MemeGameStats;
+  tokens: MemeToken[];
+  selectedIndex: number;
+  posts: SocialPost[];
+  playerPosition: number;
+  playerCostBasis: number;
+  playerEntryPrice: number;
+  playerPnL: number;
+  tradingTokenIndex: number | null; // Which token the player has a position in
   isPlaying: boolean;
+  stats: MemeGameStats;
 }
 
 const initialStats: MemeGameStats = {
@@ -49,42 +56,40 @@ const initialStats: MemeGameStats = {
   moonshots: 0,
 };
 
-function createInitialToken(): MemeToken {
+function createToken(): MemeToken {
   const { name, ticker, emoji } = generateTokenName();
-  // Random supply between 100M and 10B
   const supplyOptions = [100_000_000, 420_690_000, 1_000_000_000, 6_900_000_000, 10_000_000_000];
   const totalSupply = supplyOptions[Math.floor(Math.random() * supplyOptions.length)];
+  // Randomize starting price a bit
+  const priceMultiplier = 0.5 + Math.random() * 2;
+  const startPrice = MEME_CONSTANTS.STARTING_PRICE * priceMultiplier;
   return {
     name,
     ticker,
     emoji,
-    startPrice: MEME_CONSTANTS.STARTING_PRICE,
-    currentPrice: MEME_CONSTANTS.STARTING_PRICE,
-    priceHistory: [MEME_CONSTANTS.STARTING_PRICE],
-    launchTime: Date.now(),
+    startPrice,
+    currentPrice: startPrice,
+    priceHistory: [startPrice],
+    launchTime: Date.now() - Math.floor(Math.random() * 60000), // Random launch time in past minute
     totalSupply,
   };
 }
 
-function createInitialGameState(): MemeGameState {
-  return {
-    token: createInitialToken(),
-    posts: [],
-    playerPosition: 0,
-    playerCostBasis: 0,
-    playerEntryPrice: 0,
-    playerPnL: 0,
-    gamePhase: 'pregame',
-    timeRemaining: MEME_CONSTANTS.BASE_GAME_DURATION,
-    rugProbability: MEME_CONSTANTS.RUG_BASE_PROBABILITY * 100,
-    volatility: MEME_CONSTANTS.BASE_VOLATILITY,
-  };
+function createInitialTokens(): MemeToken[] {
+  return Array.from({ length: MEME_CONSTANTS.NUM_TOKENS }, () => createToken());
 }
 
 let store = $state<MemeStore>({
-  game: createInitialGameState(),
-  stats: initialStats,
+  tokens: createInitialTokens(),
+  selectedIndex: 0,
+  posts: [],
+  playerPosition: 0,
+  playerCostBasis: 0,
+  playerEntryPrice: 0,
+  playerPnL: 0,
+  tradingTokenIndex: null,
   isPlaying: false,
+  stats: initialStats,
 });
 
 // ============================================
@@ -93,176 +98,215 @@ let store = $state<MemeStore>({
 
 let priceInterval: number | null = null;
 let eventInterval: number | null = null;
-let timerInterval: number | null = null;
 
 // ============================================
 // EXPORTED REACTIVE STATE
 // ============================================
 
-export const memeGame = {
-  get value() { return store.game; }
+export const allTokens = {
+  get value() { return store.tokens; }
 };
 
-export const memeStats = {
-  get value() { return store.stats; }
+export const selectedTokenIndex = {
+  get value() { return store.selectedIndex; }
+};
+
+export const currentToken = {
+  get value() { return store.tokens[store.selectedIndex]; }
+};
+
+export const socialPosts = {
+  get value() { return store.posts; }
+};
+
+export const playerPosition = {
+  get value() { return store.playerPosition; }
+};
+
+export const playerPnL = {
+  get value() { return store.playerPnL; }
+};
+
+export const tradingTokenIndex = {
+  get value() { return store.tradingTokenIndex; }
 };
 
 export const isMemePlaying = {
   get value() { return store.isPlaying; }
 };
 
-export const currentToken = {
-  get value() { return store.game.token; }
+export const memeStats = {
+  get value() { return store.stats; }
 };
 
-export const socialPosts = {
-  get value() { return store.game.posts; }
-};
-
-export const playerPosition = {
-  get value() { return store.game.playerPosition; }
-};
-
-export const playerPnL = {
-  get value() { return store.game.playerPnL; }
-};
-
+// Derived from selected token
 export const priceHistory = {
-  get value() { return store.game.token.priceHistory; }
+  get value() { return store.tokens[store.selectedIndex]?.priceHistory || []; }
 };
 
 export const currentPrice = {
-  get value() { return store.game.token.currentPrice; }
+  get value() { return store.tokens[store.selectedIndex]?.currentPrice || 0; }
 };
 
 export const priceChange = {
   get value() {
-    const { startPrice, currentPrice } = store.game.token;
-    return ((currentPrice - startPrice) / startPrice) * 100;
+    const token = store.tokens[store.selectedIndex];
+    if (!token) return 0;
+    return ((token.currentPrice - token.startPrice) / token.startPrice) * 100;
   }
 };
 
-export const gamePhase = {
-  get value() { return store.game.gamePhase; }
-};
+// ============================================
+// TOKEN SELECTION
+// ============================================
 
-export const timeRemaining = {
-  get value() { return store.game.timeRemaining; }
-};
-
-export const rugProbability = {
-  get value() { return store.game.rugProbability; }
-};
+export function selectToken(index: number) {
+  if (index >= 0 && index < store.tokens.length) {
+    store.selectedIndex = index;
+  }
+}
 
 // ============================================
 // GAME ACTIONS
 // ============================================
 
 export function startMemeGame() {
-  // Reset state
-  store.game = createInitialGameState();
-  store.game.gamePhase = 'live';
+  if (store.isPlaying) return;
+
+  // Generate fresh tokens
+  store.tokens = createInitialTokens();
+  store.selectedIndex = 0;
+  store.posts = [];
+  store.playerPosition = 0;
+  store.playerCostBasis = 0;
+  store.playerEntryPrice = 0;
+  store.playerPnL = 0;
+  store.tradingTokenIndex = null;
   store.isPlaying = true;
 
-  // Add initial launch post
-  addPost('organic_pump', 'New token just launched! ' + store.game.token.ticker + ' ' + store.game.token.emoji);
+  // Add initial posts
+  store.tokens.forEach((token, i) => {
+    setTimeout(() => {
+      addPost('organic_pump', `${token.ticker} just launched! ${token.emoji} LFG!`);
+    }, i * 300);
+  });
 
-  // Start intervals
   startIntervals();
 }
 
 export function stopMemeGame() {
   stopIntervals();
+
+  // If player has position, sell it first
+  if (store.playerPosition > 0 && store.tradingTokenIndex !== null) {
+    sellAll();
+  }
+
   store.isPlaying = false;
 }
 
 function startIntervals() {
-  // Price tick
+  // Price tick - update ALL tokens
   priceInterval = setInterval(() => {
-    tickPrice();
+    tickAllPrices();
   }, MEME_CONSTANTS.TICK_INTERVAL_MS) as unknown as number;
 
   // Event check
   eventInterval = setInterval(() => {
     checkForEvents();
   }, MEME_CONSTANTS.EVENT_CHECK_INTERVAL_MS) as unknown as number;
-
-  // Timer - tracks how long you've been watching (no auto-end)
-  timerInterval = setInterval(() => {
-    store.game.timeRemaining--;
-
-    // Increase rug probability over time - surprise rug!
-    store.game.rugProbability += MEME_CONSTANTS.RUG_PROBABILITY_INCREASE;
-  }, 1000) as unknown as number;
 }
 
 function stopIntervals() {
   if (priceInterval) clearInterval(priceInterval);
   if (eventInterval) clearInterval(eventInterval);
-  if (timerInterval) clearInterval(timerInterval);
   priceInterval = null;
   eventInterval = null;
-  timerInterval = null;
 }
 
 // ============================================
-// PRICE SIMULATION
+// PRICE SIMULATION - ALL TOKENS
 // ============================================
 
-function tickPrice() {
-  if (store.game.gamePhase !== 'live') return;
+function tickAllPrices() {
+  if (!store.isPlaying) return;
 
-  const token = store.game.token;
+  store.tokens.forEach((token, index) => {
+    // Each token has its own volatility based on age and randomness
+    const age = (Date.now() - token.launchTime) / 1000;
+    const volatility = MEME_CONSTANTS.BASE_VOLATILITY * (1 + Math.random() * 0.5);
 
-  // Random walk with volatility
-  const randomChange = (Math.random() - 0.48) * store.game.volatility; // Slight upward bias early
-  const newPrice = token.currentPrice * (1 + randomChange);
+    // Random walk with slight bias
+    const bias = Math.random() < 0.52 ? 1 : -1; // Slight upward bias
+    const randomChange = (Math.random() * volatility) * bias;
+    const newPrice = token.currentPrice * (1 + randomChange);
 
-  // Clamp price
-  token.currentPrice = Math.max(newPrice, token.startPrice * 0.01);
+    // Clamp price
+    token.currentPrice = Math.max(newPrice, token.startPrice * 0.01);
 
-  // Add to history (keep last 100 points)
-  token.priceHistory.push(token.currentPrice);
-  if (token.priceHistory.length > 100) {
-    token.priceHistory.shift();
-  }
+    // Add to history (keep last 60 points for smoother chart)
+    token.priceHistory.push(token.currentPrice);
+    if (token.priceHistory.length > 60) {
+      token.priceHistory.shift();
+    }
+
+    // Check for rug (random chance increases with age)
+    const rugChance = MEME_CONSTANTS.RUG_BASE_PROBABILITY + (age / 1000) * MEME_CONSTANTS.RUG_PROBABILITY_INCREASE;
+    if (Math.random() < rugChance * 0.1) { // Much lower chance per tick
+      // Only rug if price went up significantly
+      const change = ((token.currentPrice - token.startPrice) / token.startPrice) * 100;
+      if (change > 100 && Math.random() < 0.3) {
+        executeRug(index);
+      }
+    }
+  });
 
   // Update player PnL
   updatePlayerPnL();
-
-  // Check for moon (10x)
-  if (token.currentPrice >= token.startPrice * MEME_CONSTANTS.MOON_THRESHOLD) {
-    // Rare moon event!
-    if (Math.random() < 0.3) { // 30% chance to actually moon
-      endGame('mooned');
-    }
-  }
 }
 
-function applyPriceImpact(impact: number) {
-  const token = store.game.token;
-  const multiplier = 1 + (impact / 100);
-  token.currentPrice = Math.max(token.currentPrice * multiplier, token.startPrice * 0.001);
+function executeRug(tokenIndex: number) {
+  const token = store.tokens[tokenIndex];
+
+  // Massive price crash
+  token.currentPrice = token.startPrice * 0.02;
   token.priceHistory.push(token.currentPrice);
 
-  // Temporarily increase volatility after big events
-  store.game.volatility = Math.min(store.game.volatility * 1.2, 0.15);
-  setTimeout(() => {
-    store.game.volatility = Math.max(store.game.volatility * 0.9, MEME_CONSTANTS.BASE_VOLATILITY);
-  }, 3000);
+  // Add rug post
+  addPost('rug_pull', `🚨 ${token.ticker} RUGGED! Dev dumped everything! 💀`);
 
-  updatePlayerPnL();
+  // If player was in this token, they got rugged
+  if (store.tradingTokenIndex === tokenIndex && store.playerPosition > 0) {
+    store.stats.gotRugged++;
+    const loss = store.playerCostBasis;
+    store.stats.totalLoss += loss;
+    store.playerPnL = -loss;
+    store.playerPosition = 0;
+    store.playerCostBasis = 0;
+    store.playerEntryPrice = 0;
+    store.tradingTokenIndex = null;
+  }
+
+  // Replace the rugged token with a new one after a delay
+  setTimeout(() => {
+    if (store.isPlaying) {
+      store.tokens[tokenIndex] = createToken();
+      addPost('organic_pump', `New token ${store.tokens[tokenIndex].ticker} just launched! ${store.tokens[tokenIndex].emoji}`);
+    }
+  }, 3000);
 }
 
 function updatePlayerPnL() {
-  if (store.game.playerPosition <= 0 || store.game.playerEntryPrice <= 0) {
-    store.game.playerPnL = 0;
+  if (store.playerPosition <= 0 || store.tradingTokenIndex === null) {
+    store.playerPnL = 0;
     return;
   }
 
-  const currentValue = (store.game.playerPosition / store.game.playerEntryPrice) * store.game.token.currentPrice;
-  // Use cost basis for accurate P&L (accounts for slippage)
-  store.game.playerPnL = currentValue - store.game.playerCostBasis;
+  const token = store.tokens[store.tradingTokenIndex];
+  if (!token) return;
+
+  const currentValue = (store.playerPosition / store.playerEntryPrice) * token.currentPrice;
+  store.playerPnL = currentValue - store.playerCostBasis;
 }
 
 // ============================================
@@ -270,62 +314,47 @@ function updatePlayerPnL() {
 // ============================================
 
 function checkForEvents() {
-  if (store.game.gamePhase !== 'live') return;
+  if (!store.isPlaying) return;
 
-  const gameTime = MEME_CONSTANTS.BASE_GAME_DURATION - store.game.timeRemaining;
+  // Pick a random token for the event
+  const tokenIndex = Math.floor(Math.random() * store.tokens.length);
+  const token = store.tokens[tokenIndex];
 
-  // Check each event type
-  for (const config of EVENT_CONFIGS) {
-    // Check timing constraints
-    if (gameTime < config.minPhaseTime || gameTime > config.maxPhaseTime) continue;
+  // Pick a random event
+  const eventConfigs = EVENT_CONFIGS.filter(c => c.type !== 'rug_pull');
+  const config = eventConfigs[Math.floor(Math.random() * eventConfigs.length)];
 
-    // Roll for event
-    if (Math.random() < config.probability) {
-      triggerEvent(config);
-      return; // Only one event per check
-    }
+  if (Math.random() < config.probability * 2) {
+    triggerEvent(config, tokenIndex);
   }
 }
 
-function triggerEvent(config: EventConfig) {
+function triggerEvent(config: EventConfig, tokenIndex: number) {
+  const token = store.tokens[tokenIndex];
   const { type, authorTypes } = config;
 
-  // Special handling for rug pull
-  if (type === 'rug_pull') {
-    // Check if rug should happen based on probability
-    if (Math.random() * 100 > store.game.rugProbability) return;
-
-    executeRug();
-    return;
-  }
-
-  // Get random author from valid types
+  // Get random author
   const authorType = authorTypes[Math.floor(Math.random() * authorTypes.length)];
   const author = getRandomAuthor(authorType);
 
   // Get message
-  const message = getRandomMessage(type, store.game.token.ticker);
+  const message = getRandomMessage(type, token.ticker);
 
   // Add post
   addPostWithAuthor(type, message, author);
 
-  // Apply price impact
+  // Apply price impact to this specific token
   const impact = getRandomPriceImpact(config);
-  applyPriceImpact(impact);
+  applyPriceImpact(tokenIndex, impact);
 }
 
-function executeRug() {
-  const author = getRandomAuthor('dev');
-  const message = getRandomMessage('rug_pull', store.game.token.ticker);
-  addPostWithAuthor('rug_pull', message, author);
+function applyPriceImpact(tokenIndex: number, impact: number) {
+  const token = store.tokens[tokenIndex];
+  const multiplier = 1 + (impact / 100);
+  token.currentPrice = Math.max(token.currentPrice * multiplier, token.startPrice * 0.001);
+  token.priceHistory.push(token.currentPrice);
 
-  // Massive price crash
-  applyPriceImpact(-95);
-
-  // End game
-  setTimeout(() => {
-    endGame('rugged');
-  }, 1500);
+  updatePlayerPnL();
 }
 
 function addPost(eventType: MemeEventType, content: string) {
@@ -344,12 +373,10 @@ function addPostWithAuthor(eventType: MemeEventType, content: string, author: Re
     priceImpact: 0,
   };
 
-  // Add to front
-  store.game.posts.unshift(post);
+  store.posts.unshift(post);
 
-  // Keep max posts
-  if (store.game.posts.length > MEME_CONSTANTS.MAX_POSTS_DISPLAYED) {
-    store.game.posts.pop();
+  if (store.posts.length > MEME_CONSTANTS.MAX_POSTS_DISPLAYED) {
+    store.posts.pop();
   }
 }
 
@@ -358,49 +385,57 @@ function addPostWithAuthor(eventType: MemeEventType, content: string, author: Re
 // ============================================
 
 export function buyToken(amount: number) {
-  if (store.game.gamePhase !== 'live') return;
+  if (!store.isPlaying) return;
   if (amount < MEME_CONSTANTS.MIN_BUY_AMOUNT) return;
 
-  // Check if player has enough in main portfolio
   const mainPortfolio = portfolio.value;
   if (mainPortfolio < amount) return;
+
+  // Can only hold one token at a time for simplicity
+  if (store.tradingTokenIndex !== null && store.tradingTokenIndex !== store.selectedIndex) {
+    // Already holding a different token
+    return;
+  }
+
+  const token = store.tokens[store.selectedIndex];
 
   // Apply slippage
   const slippageAmount = amount * MEME_CONSTANTS.SLIPPAGE;
   const effectiveAmount = amount - slippageAmount;
 
-  // Deduct from main portfolio (cash)
+  // Deduct from portfolio
   if (!deductFromPortfolio(amount)) return;
 
-  // Track cost basis (actual cash spent)
-  store.game.playerCostBasis += amount;
+  // Track cost basis
+  store.playerCostBasis += amount;
 
   // Calculate average entry price
-  if (store.game.playerPosition > 0) {
-    const totalValue = store.game.playerPosition + effectiveAmount;
-    const oldWeight = store.game.playerPosition / totalValue;
+  if (store.playerPosition > 0) {
+    const totalValue = store.playerPosition + effectiveAmount;
+    const oldWeight = store.playerPosition / totalValue;
     const newWeight = effectiveAmount / totalValue;
-    store.game.playerEntryPrice = (store.game.playerEntryPrice * oldWeight) + (store.game.token.currentPrice * newWeight);
+    store.playerEntryPrice = (store.playerEntryPrice * oldWeight) + (token.currentPrice * newWeight);
   } else {
-    store.game.playerEntryPrice = store.game.token.currentPrice;
+    store.playerEntryPrice = token.currentPrice;
   }
 
-  store.game.playerPosition += effectiveAmount;
+  store.playerPosition += effectiveAmount;
+  store.tradingTokenIndex = store.selectedIndex;
   updatePlayerPnL();
 
-  // Add post about user buying
-  addPost('newbie_fomo', `Someone just aped $${amount.toFixed(0)} into ${store.game.token.ticker}! 🦍`);
+  addPost('newbie_fomo', `Someone aped $${amount.toFixed(0)} into ${token.ticker}! 🦍`);
 }
 
 export function sellAll() {
-  if (store.game.gamePhase !== 'live' && store.game.gamePhase !== 'rugged') return;
-  if (store.game.playerPosition <= 0) return;
+  if (store.playerPosition <= 0 || store.tradingTokenIndex === null) return;
 
-  const exitValue = (store.game.playerPosition / store.game.playerEntryPrice) * store.game.token.currentPrice;
-  // Use cost basis for accurate profit (accounts for slippage)
-  const profit = exitValue - store.game.playerCostBasis;
+  const token = store.tokens[store.tradingTokenIndex];
+  if (!token) return;
 
-  // Add exit value back to main portfolio (cash)
+  const exitValue = (store.playerPosition / store.playerEntryPrice) * token.currentPrice;
+  const profit = exitValue - store.playerCostBasis;
+
+  // Add back to portfolio
   addToPortfolio(exitValue);
 
   // Update stats
@@ -412,92 +447,20 @@ export function sellAll() {
     if (profit < store.stats.worstTrade) store.stats.worstTrade = profit;
   }
 
+  const ticker = token.ticker;
+
   // Reset position
-  store.game.playerPnL = profit;
-  store.game.playerPosition = 0;
-  store.game.playerCostBasis = 0;
-  store.game.playerEntryPrice = 0;
+  store.playerPnL = profit;
+  store.playerPosition = 0;
+  store.playerCostBasis = 0;
+  store.playerEntryPrice = 0;
+  store.tradingTokenIndex = null;
 
-  // Add post
   if (profit > 0) {
-    addPost('diamond_hands', `Someone just took profit! +$${profit.toFixed(0)} 💰`);
+    addPost('diamond_hands', `Profit taken on ${ticker}! +$${profit.toFixed(0)} 💰`);
   } else {
-    addPost('paper_hands', `Paper hands sold at a loss! -$${Math.abs(profit).toFixed(0)} 📉`);
+    addPost('paper_hands', `Sold ${ticker} at loss: -$${Math.abs(profit).toFixed(0)} 📉`);
   }
-
-  // If game is still live, end it as exited
-  if (store.game.gamePhase === 'live') {
-    endGame('exited');
-  }
-}
-
-export function sellPartial(percentage: number) {
-  if (store.game.gamePhase !== 'live') return;
-  if (store.game.playerPosition <= 0) return;
-  if (percentage <= 0 || percentage > 100) return;
-
-  const sellAmount = store.game.playerPosition * (percentage / 100);
-  const sellValue = (sellAmount / store.game.playerEntryPrice) * store.game.token.currentPrice;
-  // Use proportional cost basis for accurate profit
-  const proportionalCostBasis = store.game.playerCostBasis * (percentage / 100);
-  const profit = sellValue - proportionalCostBasis;
-
-  // Add sell value back to main portfolio (cash)
-  addToPortfolio(sellValue);
-
-  // Update position and cost basis
-  store.game.playerPosition -= sellAmount;
-  store.game.playerCostBasis -= proportionalCostBasis;
-  updatePlayerPnL();
-
-  // Update stats
-  if (profit > 0) {
-    store.stats.totalProfit += profit;
-  } else {
-    store.stats.totalLoss += Math.abs(profit);
-  }
-
-  addPost('paper_hands', `Someone sold ${percentage}% of their ${store.game.token.ticker} bag`);
-}
-
-// ============================================
-// GAME END
-// ============================================
-
-function endGame(result: 'rugged' | 'mooned' | 'exited') {
-  stopIntervals();
-  store.game.gamePhase = result;
-  store.stats.gamesPlayed++;
-
-  if (result === 'rugged') {
-    if (store.game.playerPosition > 0) {
-      // Player got rugged with position - lost their cost basis
-      store.stats.gotRugged++;
-      const loss = store.game.playerCostBasis; // Lost everything they put in
-      store.stats.totalLoss += loss;
-      store.game.playerPnL = -loss;
-      // Reset position
-      store.game.playerPosition = 0;
-      store.game.playerCostBasis = 0;
-      store.game.playerEntryPrice = 0;
-    } else {
-      // Escaped the rug!
-      store.stats.rugsEscaped++;
-    }
-  } else if (result === 'mooned') {
-    store.stats.moonshots++;
-    // Auto-sell at moon
-    if (store.game.playerPosition > 0) {
-      sellAll();
-    }
-  }
-
-  store.isPlaying = false;
-}
-
-export function playAgain() {
-  store.game = createInitialGameState();
-  startMemeGame();
 }
 
 // ============================================
@@ -517,8 +480,15 @@ export function formatPriceChange(change: number): string {
 }
 
 export function getChangeColor(change: number): string {
-  if (change > 50) return '#4ade80';  // Bright green
-  if (change > 0) return '#22c55e';   // Green
-  if (change > -20) return '#f59e0b'; // Yellow/orange
-  return '#ef4444';                    // Red
+  if (change > 50) return '#4ade80';
+  if (change > 0) return '#22c55e';
+  if (change > -20) return '#f59e0b';
+  return '#ef4444';
+}
+
+export function formatMarketCap(cap: number): string {
+  if (cap >= 1_000_000_000) return `$${(cap / 1_000_000_000).toFixed(2)}B`;
+  if (cap >= 1_000_000) return `$${(cap / 1_000_000).toFixed(2)}M`;
+  if (cap >= 1_000) return `$${(cap / 1_000).toFixed(1)}K`;
+  return `$${cap.toFixed(0)}`;
 }
