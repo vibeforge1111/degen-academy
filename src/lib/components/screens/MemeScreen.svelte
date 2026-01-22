@@ -196,7 +196,7 @@
     </header>
 
     <!-- Main Content Area -->
-    <div class="flex-1 overflow-hidden" style="padding: 0 32px 24px 32px;">
+    <div class="content-wrapper">
       <div class="trading-layout">
         <!-- Left: Chart + Token Info -->
         <div class="chart-area">
@@ -309,6 +309,16 @@
 </div>
 
 <style>
+  /* Content wrapper - MUST be flex to properly contain children */
+  .content-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0 32px 24px 32px;
+  }
+
   /* Mode Switcher (same as GameScreen) */
   .mode-switcher {
     display: flex;
@@ -454,13 +464,15 @@
     text-shadow: 0 1px 1px rgba(0,0,0,0.3);
   }
 
-  /* Trading Layout - fixed height structure */
+  /* Trading Layout - fixed height structure, columns don't affect each other */
   .trading-layout {
     display: grid;
     grid-template-columns: 1fr 300px;
+    grid-template-rows: 1fr;
     gap: 20px;
-    height: 100%;
+    flex: 1;
     min-height: 0;
+    align-items: stretch;
   }
 
   @media (max-width: 1024px) {
@@ -475,12 +487,12 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-    height: 100%;
     min-height: 0;
     overflow: hidden;
   }
 
   .token-header {
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     gap: 24px;
@@ -563,22 +575,23 @@
     overflow: hidden;
   }
 
-  /* Trading Area - fills grid cell height */
+  /* Trading Area - uses absolute positioning to isolate feed from chart */
   .trading-area {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 12px;
     min-height: 0;
-    height: 100%;
     overflow: hidden;
   }
 
-  /* Top section aligns with token-header height */
+  /* Top section - fixed height container */
   .trading-controls {
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     gap: 12px;
+    z-index: 1;
   }
 
   .position-card {
@@ -711,12 +724,21 @@
     cursor: not-allowed;
   }
 
-  /* Feed Area - extends to fill remaining space and align with chart bottom */
+  /* Feed Area - relative container, content is absolute inside */
   .feed-area {
     flex: 1;
+    position: relative;
     min-height: 0;
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
+  }
+
+  /* Force SocialFeed to fill via absolute positioning */
+  .feed-area > :global(*) {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    height: auto !important;
   }
 </style>

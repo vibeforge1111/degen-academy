@@ -38,10 +38,10 @@ Can you reach $1M without getting rugged?
 
   <!-- Blood drip effects -->
   <div class="blood-container">
-    {#each Array(8) as _, i}
+    {#each Array(14) as _, i}
       <div
         class="blood-drop"
-        style="--delay: {i * 0.5}s; --x: {10 + i * 12}%"
+        style="--delay: {i * 0.3}s; --x: {5 + i * 7}%"
       ></div>
     {/each}
   </div>
@@ -114,11 +114,8 @@ Can you reach $1M without getting rugged?
       <!-- Ralph Quote Panel -->
       <div class="ralph-panel">
         <div class="ralph-border"></div>
-        <div class="ralph-avatar">
-          <span>🐕</span>
-        </div>
         <div class="ralph-content">
-          <p class="ralph-name">Ralph</p>
+          <p class="ralph-name">Ralph says...</p>
           <p class="ralph-quote">"{quote}"</p>
         </div>
       </div>
@@ -126,11 +123,10 @@ Can you reach $1M without getting rugged?
       <!-- Action Buttons -->
       <div class="actions">
         <button class="btn btn-primary" onclick={() => startGame()}>
-          <span>🔄</span>
           TRY AGAIN
         </button>
 
-        <button class="btn btn-secondary" onclick={() => shareToTwitter()}>
+        <button class="btn btn-x" onclick={() => shareToTwitter()}>
           <svg class="x-icon" viewBox="0 0 24 24" fill="currentColor">
             <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
           </svg>
@@ -178,14 +174,14 @@ Can you reach $1M without getting rugged?
 
   .blood-drop {
     position: absolute;
-    width: 4px;
-    height: 20px;
-    background: linear-gradient(to bottom, rgba(239, 68, 68, 0.6), transparent);
+    width: 5px;
+    height: 30px;
+    background: linear-gradient(to bottom, rgba(220, 38, 38, 0.8), rgba(185, 28, 28, 0.4), transparent);
     left: var(--x);
-    top: -20px;
-    animation: blood-drop 3s ease-in infinite;
+    top: -30px;
+    animation: blood-drop 2.5s ease-in infinite;
     animation-delay: var(--delay);
-    border-radius: 0 0 4px 4px;
+    border-radius: 0 0 5px 5px;
   }
 
   @keyframes blood-drop {
@@ -216,6 +212,7 @@ Can you reach $1M without getting rugged?
     display: flex;
     align-items: center;
     justify-content: center;
+    margin-top: 16px;
     margin-bottom: 24px;
   }
 
@@ -255,7 +252,7 @@ Can you reach $1M without getting rugged?
   /* Skull */
   .skull-container {
     position: relative;
-    margin-bottom: 8px;
+    margin-bottom: -8px;
   }
 
   .skull-glow {
